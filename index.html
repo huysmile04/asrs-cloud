@@ -1,106 +1,172 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>AS/RS Control Center</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AS/RS Control Center - HCMUTE Project</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Arial; background: #1a1a2e; color: white; text-align: center; padding: 20px; }
-        .status-bar { background: #16213e; padding: 10px; border-radius: 5px; margin: 15px auto; max-width: 1000px; border: 1px solid #0f3460; }
-        .control-panel { background: #16213e; padding: 20px; border-radius: 10px; max-width: 1000px; margin: 20px auto; display: flex; gap: 10px; justify-content: center; border: 1px solid #e94560; }
-        .grid-container { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; max-width: 1000px; margin: 0 auto; }
-        .slot { background: #27ae60; padding: 15px; border-radius: 8px; border: 1px solid #0f3460; }
-        .slot.occupied { background: #e74c3c; }
-        .history-section { max-width: 1000px; margin: 30px auto; background: #16213e; padding: 20px; border-radius: 10px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #0f3460; padding: 10px; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #1a1a2e; color: #ffffff; text-align: center; padding: 20px; }
+        h1 { color: #e94560; margin-bottom: 5px; }
+        .status-bar { background: #16213e; padding: 10px; border-radius: 5px; margin: 15px auto; max-width: 1000px; border: 1px solid #0f3460; font-weight: bold; }
+        
+        .control-panel { background: #16213e; padding: 20px; border-radius: 10px; max-width: 1000px; margin: 20px auto; display: flex; gap: 10px; justify-content: center; border: 1px solid #e94560; flex-wrap: wrap; }
+        input { padding: 12px; border-radius: 5px; border: none; width: 140px; font-size: 16px; background: #0f3460; color: white; }
+        button { padding: 12px 25px; border-radius: 5px; border: none; cursor: pointer; font-weight: bold; color: white; transition: 0.3s; }
+        .btn-import { background: #e94560; }
+        .btn-export { background: #0f3460; border: 1px solid #e94560; }
+        .btn-reset { background: #c0392b; font-size: 12px; padding: 5px 10px; }
+        .btn-excel { background: #27ae60; margin-top: 10px; }
+        button:hover { opacity: 0.8; transform: scale(1.02); }
+
+        .grid-container { display: none; grid-template-columns: repeat(6, 1fr); gap: 12px; max-width: 1000px; margin: 0 auto; padding: 20px; }
+        .slot { background-color: #27ae60; padding: 15px; border-radius: 8px; border: 2px solid #0f3460; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .slot.occupied { background-color: #e74c3c !important; }
+        .slot b { font-size: 20px; display: block; margin-bottom: 5px; }
+        .slot span { font-size: 13px; font-family: monospace; }
+
+        .history-section { max-width: 1000px; margin: 30px auto; background: #16213e; padding: 20px; border-radius: 10px; display: none; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #0f3460; padding: 12px; text-align: center; }
         th { background: #0f3460; color: #e94560; }
-        button { cursor: pointer; border: none; border-radius: 5px; padding: 10px; font-weight: bold; color: white; }
+        tr:nth-child(even) { background: #1a1a2e; }
     </style>
 </head>
 <body>
-    <h1>🚀 TRUNG TÂM ĐIỀU KHIỂN AS/RS CLOUD</h1>
-    <div class="status-bar" id="stat">🔐 Đang chờ đăng nhập...</div>
 
-    <div class="control-panel">
-        <input type="number" id="sID" placeholder="ID Ô (1-30)" style="width:80px">
-        <input type="text" id="uID" placeholder="Mã RFID">
-        <button onclick="send('IMPORT')" style="background:#e94560">LỆNH NHẬP</button>
-        <button onclick="send('EXPORT')" style="background:#0f3460; border:1px solid #e94560">LỆNH XUẤT</button>
+    <h1>🚀 AS/RS WAREHOUSE CONTROL CENTER</h1>
+    <p>HCMUTE Graduation Project - Student: Huy</p>
+
+    <div class="status-bar" id="stat">🔐 Awaiting Authentication...</div>
+
+    <div class="control-panel" id="ctrl-panel">
+        <input type="number" id="sID" placeholder="Slot ID (1-30)" min="1" max="30">
+        <input type="text" id="uID" placeholder="RFID Tag (UID)">
+        <button class="btn-import" onclick="sendCmd('IMPORT')">IMPORT</button>
+        <button class="btn-export" onclick="sendCmd('EXPORT')">EXPORT</button>
     </div>
 
     <div class="grid-container" id="grid"></div>
 
-    <div class="history-section">
+    <div class="history-section" id="hist-sec">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h3>📜 NHẬT KÝ VẬN HÀNH (SSD PERSISTENCE)</h3>
-            <button onclick="resetHist()" style="background:#e74c3c">XÓA NHẬT KÝ SSD</button>
+            <h3>📜 OPERATION LOGS (SSD PERSISTENT)</h3>
+            <div>
+                <button class="btn-excel" onclick="exportToExcel()">📊 EXPORT EXCEL</button>
+                <button class="btn-reset" onclick="resetLog()">RESET SSD LOG</button>
+            </div>
         </div>
         <table id="hTable">
-            <thead><tr><th>Thời gian</th><th>Vị trí</th><th>Hành động</th><th>Mã hàng</th></tr></thead>
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Location</th>
+                    <th>Action</th>
+                    <th>RFID UID</th>
+                </tr>
+            </thead>
             <tbody></tbody>
         </table>
     </div>
 
     <script>
-        const CFG = { url: 'wss://5031841c1f8d4218bafa640220641d55.s1.eu.hivemq.cloud:8884/mqtt', opt: { username: 'lhuy04', password: 'Hcmute2026', protocol: 'wss', port: 8884 } };
-        let client;
+        const CFG = { 
+            url: 'wss://5031841c1f8d4218bafa640220641d55.s1.eu.hivemq.cloud:8884/mqtt', 
+            opt: { username: 'lhuy04', password: 'Hcmute2026', protocol: 'wss', port: 8884 } 
+        };
+        let mqttClient;
+        let lastHistoryMsg = ""; // Để chống trùng lặp dữ liệu
 
         window.onload = () => {
-            if(prompt("Mật khẩu:") === "hcmute2026") { initGrid(); connect(); }
-            else { location.reload(); }
+            if (prompt("Security Password:") === "hcmute2026") {
+                document.getElementById('ctrl-panel').style.display = 'flex';
+                document.getElementById('grid').style.display = 'grid';
+                document.getElementById('hist-sec').style.display = 'block';
+                initGrid(); 
+                connectMQTT();
+            } else { location.reload(); }
         };
 
         function initGrid() {
             const g = document.getElementById('grid');
-            for(let i=1; i<=30; i++) g.innerHTML += `<div class="slot" id="s-${i}"><b>Ô ${i}</b><br><span id="u-${i}">Trống</span></div>`;
+            for(let i=1; i<=30; i++) {
+                g.innerHTML += `<div class="slot" id="s-${i}"><b>Slot ${i}</b><span id="u-${i}">Available</span></div>`;
+            }
         }
 
-        function connect() {
-            client = mqtt.connect(CFG.url, CFG.opt);
-            client.on('connect', () => {
-                document.getElementById('stat').innerText = "🟢 HỆ THỐNG ONLINE";
-                client.subscribe(['warehouse/status', 'warehouse/history', 'warehouse/history_init']);
-                // Yêu cầu Pi gửi lại lịch sử cũ
-                client.publish('warehouse/command', JSON.stringify({action: "GET_HISTORY"}));
+        function connectMQTT() {
+            mqttClient = mqtt.connect(CFG.url, CFG.opt);
+            mqttClient.on('connect', () => {
+                const s = document.getElementById('stat');
+                s.innerText = "🟢 SYSTEM ONLINE - CONNECTED TO CLOUD";
+                s.style.color = "#2ecc71";
+                mqttClient.subscribe(['warehouse/status', 'warehouse/history', 'warehouse/history_init']);
+                // Request stored history from Raspberry Pi
+                mqttClient.publish('warehouse/command', JSON.stringify({action: "GET_HISTORY"}));
             });
-            client.on('message', (t, m) => {
-                const d = JSON.parse(m.toString());
-                if(t === 'warehouse/status') updateUI(d);
-                if(t === 'warehouse/history') addRow(d, false);
-                if(t === 'warehouse/history_init') {
-                    document.querySelector("#hTable tbody").innerHTML = "";
-                    d.forEach(log => addRow(log, true));
+
+            mqttClient.on('message', (topic, message) => {
+                const msgStr = message.toString();
+                const data = JSON.parse(msgStr);
+
+                if (topic === 'warehouse/status') updateUI(data);
+
+                // Live history update with duplicate prevention
+                if (topic === 'warehouse/history') {
+                    if (msgStr !== lastHistoryMsg) {
+                        addRow(data, false);
+                        lastHistoryMsg = msgStr;
+                    }
+                }
+
+                // Batch history load on F5
+                if (topic === 'warehouse/history_init') {
+                    const tbody = document.querySelector("#hTable tbody");
+                    tbody.innerHTML = ""; 
+                    data.forEach(log => addRow(log, true));
                 }
             });
         }
 
-        function send(act) {
+        function sendCmd(act) {
             const sid = document.getElementById('sID').value;
             const uid = document.getElementById('uID').value;
-            if(!sid) return alert("Nhập số ô!");
-            client.publish('warehouse/command', JSON.stringify({action: act, slot_id: parseInt(sid), uid: uid}));
-        }
-
-        function resetHist() {
-            if(confirm("Xóa sạch nhật ký trên SSD của Pi?")) {
-                client.publish('warehouse/command', JSON.stringify({action: "RESET_HISTORY"}));
-            }
+            if(!sid) return alert("Please enter Slot ID!");
+            const cmd = { action: act, slot_id: parseInt(sid), uid: uid || "N/A" };
+            mqttClient.publish('warehouse/command', JSON.stringify(cmd), { qos: 1 });
+            alert(`Command sent: ${act} Slot ${sid}`);
         }
 
         function updateUI(data) {
             for(let i=1; i<=30; i++) {
                 const s = data[`slot_${i}`], div = document.getElementById(`s-${i}`), span = document.getElementById(`u-${i}`);
-                if(s.status === "Occupied") { div.classList.add('occupied'); span.innerText = s.uid; }
-                else { div.classList.remove('occupied'); span.innerText = "Trống"; }
+                if(s.status === "Occupied") { 
+                    div.classList.add('occupied'); 
+                    span.innerText = s.uid; 
+                } else { 
+                    div.classList.remove('occupied'); 
+                    span.innerText = "Available"; 
+                }
             }
         }
 
         function addRow(l, isBatch) {
-            const row = `<tr><td>${l.time}</td><td>Ô ${l.slot}</td><td>${l.act}</td><td>${l.uid}</td></tr>`;
+            const row = `<tr><td>${l.time}</td><td>Slot ${l.slot}</td><td><b>${l.act}</b></td><td>${l.uid}</td></tr>`;
             const tbody = document.querySelector("#hTable tbody");
             if(isBatch) tbody.insertAdjacentHTML('beforeend', row);
             else tbody.insertAdjacentHTML('afterbegin', row);
+        }
+
+        function resetLog() {
+            if(confirm("Confirm: Clear all logs on Raspberry Pi SSD?")) {
+                mqttClient.publish('warehouse/command', JSON.stringify({action: "RESET_HISTORY"}));
+            }
+        }
+
+        function exportToExcel() {
+            const wb = XLSX.utils.table_to_book(document.getElementById("hTable"), {sheet: "Warehouse_Logs"});
+            XLSX.writeFile(wb, "Warehouse_Operation_Report.xlsx");
         }
     </script>
 </body>
