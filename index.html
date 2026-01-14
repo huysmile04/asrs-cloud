@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>AS/RS Control Center</title>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Arial; background: #1a1a2e; color: white; text-align: center; padding: 20px; }
+        .status-bar { background: #16213e; padding: 10px; border-radius: 5px; margin: 15px auto; max-width: 1000px; border: 1px solid #0f3460; }
+        .control-panel { background: #16213e; padding: 20px; border-radius: 10px; max-width: 1000px; margin: 20px auto; display: flex; gap: 10px; justify-content: center; border: 1px solid #e94560; }
+        .grid-container { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; max-width: 1000px; margin: 0 auto; }
+        .slot { background: #27ae60; padding: 15px; border-radius: 8px; border: 1px solid #0f3460; }
+        .slot.occupied { background: #e74c3c; }
+        .history-section { max-width: 1000px; margin: 30px auto; background: #16213e; padding: 20px; border-radius: 10px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #0f3460; padding: 10px; }
+        th { background: #0f3460; color: #e94560; }
+        button { cursor: pointer; border: none; border-radius: 5px; padding: 10px; font-weight: bold; color: white; }
+    </style>
+</head>
+<body>
+    <h1>🚀 TRUNG TÂM ĐIỀU KHIỂN AS/RS CLOUD</h1>
+    <div class="status-bar" id="stat">🔐 Đang chờ đăng nhập...</div>
+
+    <div class="control-panel">
+        <input type="number" id="sID" placeholder="ID Ô (1-30)" style="width:80px">
+        <input type="text" id="uID" placeholder="Mã RFID">
+        <button onclick="send('IMPORT')" style="background:#e94560">LỆNH NHẬP</button>
+        <button onclick="send('EXPORT')" style="background:#0f3460; border:1px solid #e94560">LỆNH XUẤT</button>
+    </div>
+
+    <div class="grid-container" id="grid"></div>
+
+    <div class="history-section">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3>📜 NHẬT KÝ VẬN HÀNH (SSD PERSISTENCE)</h3>
+            <button onclick="resetHist()" style="background:#e74c3c">XÓA NHẬT KÝ SSD</button>
+        </div>
+        <table id="hTable">
+            <thead><tr><th>Thời gian</th><th>Vị trí</th><th>Hành động</th><th>Mã hàng</th></tr></thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <script>
+        const CFG = { url: 'wss://5031841c1f8d4218bafa640220641d55.s1.eu.hivemq.cloud:8884/mqtt', opt: { username: 'lhuy04', password: 'Hcmute2026', protocol: 'wss', port: 8884 } };
+        let client;
+
+        window.onload = () => {
+            if(prompt("Mật khẩu:") === "hcmute2026") { initGrid(); connect(); }
+            else { location.reload(); }
+        };
+
+        function initGrid() {
+            const g = document.getElementById('grid');
+            for(let i=1; i<=30; i++) g.innerHTML += `<div class="slot" id="s-${i}"><b>Ô ${i}</b><br><span id="u-${i}">Trống</span></div>`;
+        }
+
+        function connect() {
+            client = mqtt.connect(CFG.url, CFG.opt);
+            client.on('connect', () => {
+                document.getElementById('stat').innerText = "🟢 HỆ THỐNG ONLINE";
+                client.subscribe(['warehouse/status', 'warehouse/history', 'warehouse/history_init']);
+                // Yêu cầu Pi gửi lại lịch sử cũ
+                client.publish('warehouse/command', JSON.stringify({action: "GET_HISTORY"}));
+            });
+            client.on('message', (t, m) => {
+                const d = JSON.parse(m.toString());
+                if(t === 'warehouse/status') updateUI(d);
+                if(t === 'warehouse/history') addRow(d, false);
+                if(t === 'warehouse/history_init') {
+                    document.querySelector("#hTable tbody").innerHTML = "";
+                    d.forEach(log => addRow(log, true));
+                }
+            });
+        }
+
+        function send(act) {
+            const sid = document.getElementById('sID').value;
+            const uid = document.getElementById('uID').value;
+            if(!sid) return alert("Nhập số ô!");
+            client.publish('warehouse/command', JSON.stringify({action: act, slot_id: parseInt(sid), uid: uid}));
+        }
+
+        function resetHist() {
+            if(confirm("Xóa sạch nhật ký trên SSD của Pi?")) {
+                client.publish('warehouse/command', JSON.stringify({action: "RESET_HISTORY"}));
+            }
+        }
+
+        function updateUI(data) {
+            for(let i=1; i<=30; i++) {
+                const s = data[`slot_${i}`], div = document.getElementById(`s-${i}`), span = document.getElementById(`u-${i}`);
+                if(s.status === "Occupied") { div.classList.add('occupied'); span.innerText = s.uid; }
+                else { div.classList.remove('occupied'); span.innerText = "Trống"; }
+            }
+        }
+
+        function addRow(l, isBatch) {
+            const row = `<tr><td>${l.time}</td><td>Ô ${l.slot}</td><td>${l.act}</td><td>${l.uid}</td></tr>`;
+            const tbody = document.querySelector("#hTable tbody");
+            if(isBatch) tbody.insertAdjacentHTML('beforeend', row);
+            else tbody.insertAdjacentHTML('afterbegin', row);
+        }
+    </script>
+</body>
+</html>
