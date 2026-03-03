@@ -1,292 +1,335 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AS/RS Pro Max | HCMUTE 2026</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <title>Smart AS/RS | bit.ly/asrs-cloud</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-        /* Hiệu ứng nháy sáng nhẹ khi chọn ô */
-        .slot-active { border: 3px solid #3b82f6 !important; box-shadow: 0 0 15px #3b82f6; transform: scale(1.02); }
-        .occupied-glow { box-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #1a1a2e;
+            color: white;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        /* 1. Hiệu ứng nháy sáng nhẹ (Glow) */
+        .blink-glow {
+            animation: glow-pulse 1s infinite alternate;
+            border: 2px solid #f1c40f !important;
+            box-shadow: 0 0 15px #f1c40f;
+        }
+
+        @keyframes glow-pulse {
+            from {
+                opacity: 1;
+            }
+
+            to {
+                opacity: 0.5;
+            }
+        }
+
+        /* 2. Hiệu ứng khi chọn ô */
+        .selected {
+            border: 3px solid #f1c40f !important;
+            transform: scale(1.05);
+            z-index: 10;
+        }
+
+        #login-overlay {
+            position: fixed;
+            inset: 0;
+            background: #1a1a2e;
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .login-box {
+            background: #16213e;
+            padding: 30px;
+            border-radius: 10px;
+            border: 1px solid #e94560;
+        }
+
+        .login-box input {
+            display: block;
+            width: 250px;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: none;
+            outline: none;
+        }
+
+        #main-content {
+            display: none;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #0f3460;
+        }
+
+        .tab-btn {
+            padding: 12px 25px;
+            background: #16213e;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            border-radius: 8px 8px 0 0;
+            margin: 0 2px;
+            font-weight: bold;
+        }
+
+        .tab-btn.active {
+            background: #e94560;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+            background: #16213e;
+            padding: 20px;
+            border-radius: 0 0 10px 10px;
+            border: 1px solid #0f3460;
+            border-top: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 10px;
+        }
+
+        .slot {
+            background: #27ae60;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #0f3460;
+            transition: 0.3s;
+            height: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            cursor: pointer;
+            /* Thêm con trỏ tay */
+        }
+
+        .slot:hover {
+            background: #2ecc71;
+        }
+
+        .slot.occupied {
+            background: #e74c3c;
+        }
+
+        .slot.occupied:hover {
+            background: #ff5e4d;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        th,
+        td {
+            border: 1px solid #0f3460;
+            padding: 10px;
+        }
+
+        footer {
+            margin-top: 30px;
+            font-size: 13px;
+            color: #555;
+            border-top: 1px solid #0f3460;
+            padding-top: 15px;
+        }
     </style>
 </head>
-<body class="bg-[#0f172a] text-slate-100 min-h-screen">
 
-    <div id="login-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-[#020617]">
-        <div class="bg-[#1e293b] p-8 rounded-2xl border border-slate-700 w-96 shadow-2xl text-center">
-            <img src="ute_logo.png" class="h-20 mx-auto mb-4">
-            <h2 class="text-xl font-bold mb-6">AS/RS SMART CONTROL</h2>
-            <input type="password" id="pass" placeholder="Enter Password" class="w-full bg-[#0f172a] p-3 rounded-lg mb-4 text-center border border-slate-600 outline-none focus:border-blue-500">
-            <button onclick="handleLogin()" class="w-full bg-blue-600 hover:bg-blue-700 p-3 rounded-lg font-bold">LOGIN SYSTEM</button>
+<body>
+    <h1>🚀 IOT-BASED AS/RS SYSTEM</h1>
+
+    <div id="login-overlay">
+        <div class="login-box">
+            <h3>🔐 System Login</h3>
+            <input type="text" id="user" placeholder="Username">
+            <input type="password" id="pass" placeholder="Password">
+            <button onclick="doLogin()"
+                style="width:100%; padding:12px; background:#e94560; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold">ACCESS
+                DASHBOARD</button>
         </div>
     </div>
 
-    <div id="app-content" class="hidden">
-        <nav class="bg-[#1e293b] border-b border-slate-700 p-4 sticky top-0 z-40 shadow-lg">
-            <div class="container mx-auto flex justify-between items-center">
-                <div class="flex items-center gap-3">
-                    <img src="ute_logo.png" class="h-8">
-                    <span class="font-bold text-blue-400">SMART WAREHOUSE AI</span>
-                </div>
-                <div class="flex gap-2 md:gap-6 text-sm font-medium">
-                    <button onclick="switchTab('tab-dash')" class="nav-btn text-blue-400"><i class="fas fa-chart-pie mr-1"></i> DASHBOARD</button>
-                    <button onclick="switchTab('tab-map')" class="nav-btn"><i class="fas fa-th-large mr-1"></i> MAP</button>
-                    <button onclick="switchTab('tab-logs')" class="nav-btn"><i class="fas fa-list-alt mr-1"></i> LOGS</button>
-                    <button onclick="switchTab('tab-settings')" class="nav-btn"><i class="fas fa-cog mr-1"></i> SETTINGS</button>
-                </div>
-            </div>
-        </nav>
-
-        <div class="container mx-auto p-4 md:p-8">
-            <div id="tab-dash" class="tab-content active grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div class="bg-[#1e293b] p-6 rounded-2xl border border-slate-700 shadow-inner">
-                    <h3 class="text-slate-400 text-sm font-bold uppercase mb-4">Storage Utilization (%)</h3>
-                    <div class="h-64 flex justify-center">
-                        <canvas id="utilChart"></canvas>
-                    </div>
-                </div>
-                <div class="grid grid-cols-1 gap-6">
-                    <div class="bg-[#1e293b] p-6 rounded-2xl border border-slate-700 flex justify-between items-center">
-                        <div>
-                            <h4 class="text-slate-400 text-xs uppercase mb-1">Items Processed</h4>
-                            <p class="text-5xl font-black text-emerald-500" id="totalOps">0</p>
-                        </div>
-                        <i class="fas fa-exchange-alt text-4xl text-slate-600"></i>
-                    </div>
-                    <div class="bg-[#1e293b] p-6 rounded-2xl border border-slate-700">
-                        <h4 class="text-slate-400 text-xs uppercase mb-3">Connection Status</h4>
-                        <div class="space-y-4">
-                            <div class="flex justify-between items-center">
-                                <span>MQTT HiveMQ</span>
-                                <span class="bg-emerald-500/20 text-emerald-500 px-3 py-1 rounded-full text-xs">● Connected</span>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span>Raspberry Pi SSD</span>
-                                <span class="bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-xs">● Active</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="tab-map" class="tab-content space-y-8">
-                <div class="bg-[#1e293b] p-6 rounded-2xl border border-slate-700 flex flex-wrap gap-6 justify-center shadow-xl">
-                    <div class="text-center">
-                        <label class="block text-xs text-slate-500 mb-1">Target Slot</label>
-                        <input type="text" id="sID" readonly class="bg-[#0f172a] text-blue-400 text-2xl font-bold w-24 p-2 rounded-lg text-center border border-slate-600">
-                    </div>
-                    <div class="flex-1 min-w-[200px]">
-                        <label class="block text-xs text-slate-500 mb-1">RFID / Product ID</label>
-                        <input type="text" id="uID" placeholder="Scan Tag..." class="bg-[#0f172a] w-full p-3 rounded-lg border border-slate-600 outline-none focus:border-blue-500">
-                    </div>
-                    <div class="flex items-end gap-3">
-                        <button onclick="sendCmd('IMPORT')" class="bg-emerald-600 hover:bg-emerald-700 px-8 py-3 rounded-xl font-bold transition-all hover:scale-105">IMPORT</button>
-                        <button onclick="sendCmd('EXPORT')" class="bg-slate-700 hover:bg-slate-600 border border-slate-500 px-8 py-3 rounded-xl font-bold transition-all">EXPORT</button>
-                    </div>
-                </div>
-                <div id="grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4"></div>
-            </div>
-
-            <div id="tab-logs" class="tab-content bg-[#1e293b] rounded-2xl border border-slate-700 overflow-hidden shadow-2xl">
-                <div class="p-6 bg-[#334155]/30 flex justify-between items-center gap-4">
-                    <div class="relative flex-1">
-                        <i class="fas fa-search absolute left-4 top-4 text-slate-500"></i>
-                        <input type="text" id="logSearch" onkeyup="filterLogs()" placeholder="Search logs (Slot, UID, Action)..." class="w-full bg-[#0f172a] p-3 pl-12 rounded-xl outline-none border border-slate-600">
-                    </div>
-                    <button onclick="exportExcel()" class="bg-emerald-600 p-3 rounded-xl hover:bg-emerald-700"><i class="fas fa-file-excel"></i></button>
-                    <button onclick="resetSSD()" class="bg-red-600 p-3 rounded-xl hover:bg-red-700"><i class="fas fa-trash-alt"></i></button>
-                </div>
-                <div class="overflow-x-auto max-h-[60vh]">
-                    <table class="w-full text-left" id="logTable">
-                        <thead class="bg-[#0f172a] text-slate-400 sticky top-0">
-                            <tr><th class="p-4">Timestamp</th><th class="p-4">Location</th><th class="p-4">Action</th><th class="p-4">Product UID</th></tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-800"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div id="tab-settings" class="tab-content bg-[#1e293b] p-8 rounded-2xl border border-slate-700 max-w-2xl mx-auto">
-                <h3 class="text-xl font-bold mb-6 border-b border-slate-700 pb-4"><i class="fas fa-sliders-h mr-2"></i> System Configuration</h3>
-                <div class="space-y-6">
-                    <div class="flex justify-between items-center">
-                        <div>
-                            <p class="font-bold">Admin Password</p>
-                            <p class="text-sm text-slate-500">Change your system access key</p>
-                        </div>
-                        <button class="text-blue-400 font-bold">Update</button>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <div>
-                            <p class="font-bold">MQTT End-point</p>
-                            <p class="text-xs font-mono text-slate-500 truncate w-48">hivemq.cloud:8884</p>
-                        </div>
-                        <span class="text-emerald-500"><i class="fas fa-check-circle"></i> Valid</span>
-                    </div>
-                    <div class="pt-4">
-                        <button onclick="logout()" class="w-full bg-slate-700 p-3 rounded-xl text-red-400 font-bold border border-red-900/30">LOGOUT SESSION</button>
-                    </div>
-                </div>
-            </div>
+    <div id="main-content">
+        <div class="tabs">
+            <button class="tab-btn active" onclick="showTab('tab-map')">WAREHOUSE MAP</button>
+            <button class="tab-btn" onclick="showTab('tab-logs')">OPERATION LOGS</button>
+            <button class="tab-btn" onclick="showTab('tab-tools')">SYSTEM TOOLS</button>
         </div>
+
+        <div id="tab-map" class="tab-content active">
+            <p style="color: #888; font-size: 14px; margin-bottom: 15px;">💡 Click on a slot to select, then choose
+                action.</p>
+            <div style="margin-bottom:20px; display:flex; gap:10px; justify-content:center">
+                <input type="number" id="sID" placeholder="Slot" readonly
+                    style="width:80px; padding:10px; border-radius:5px; border:none; background: #0f3460; color: #f1c40f; font-weight: bold; text-align: center;">
+                <input type="text" id="uID" placeholder="RFID UID" style="padding:10px; border-radius:5px; border:none">
+                <button onclick="sendCmd('IMPORT')"
+                    style="background:#e94560; color:white; padding:10px 20px; border:none; border-radius:5px; font-weight:bold">IMPORT</button>
+                <button onclick="sendCmd('EXPORT')"
+                    style="background:#0f3460; color:white; padding:10px 20px; border:1px solid #e94560; border-radius:5px; font-weight:bold">EXPORT</button>
+            </div>
+            <div class="grid-container" id="grid"></div>
+        </div>
+
+        <div id="tab-logs" class="tab-content">
+            <table id="hTable">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Location</th>
+                        <th>Action</th>
+                        <th>UID</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div id="tab-tools" class="tab-content">
+            <button onclick="adminAction('EXCEL')"
+                style="background:#27ae60; color:white; padding:15px; border:none; border-radius:5px; margin:10px; font-weight:bold">📊
+                EXPORT REPORT</button>
+            <button onclick="adminAction('RESET')"
+                style="background:#e74c3c; color:white; padding:15px; border:none; border-radius:5px; margin:10px; font-weight:bold">🗑️
+                CLEAR SSD</button>
+        </div>
+
+        <footer>
+            <p>Access Point: <b style="color: #e94560;">bit.ly/asrs-cloud</b></p>
+            <p>© 2026 HCMUTE Graduation Project - Student: Huy</p>
+        </footer>
     </div>
 
     <script>
         const CFG = { url: 'wss://5031841c1f8d4218bafa640220641d55.s1.eu.hivemq.cloud:8884/mqtt', opt: { username: 'lhuy04', password: 'Hcmute2026', protocol: 'wss', port: 8884 } };
-        let client, lastMsg = "", interactingSlot = null, chartObj = null;
+        let client, lastMsg = "", interactingSlot = null;
 
-        function handleLogin() {
-            if(document.getElementById('pass').value === "hcmute2026") {
-                document.getElementById('login-screen').classList.add('hidden');
-                document.getElementById('app-content').classList.remove('hidden');
+        function doLogin() {
+            if (document.getElementById('user').value === "admin" && document.getElementById('pass').value === "hcmute2026") {
+                document.getElementById('login-overlay').style.display = 'none';
+                document.getElementById('main-content').style.display = 'block';
                 initGrid(); connect();
-                Swal.fire({ icon: 'success', title: 'Huy Logged In', timer: 1000, showConfirmButton: false, background: '#1e293b', color: '#fff' });
-            } else Swal.fire({ icon: 'error', title: 'Access Denied', background: '#1e293b', color: '#fff' });
+            } else alert("Mật khẩu không đúng!");
         }
 
-        function switchTab(id) {
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('text-blue-400'));
-            document.getElementById(id).classList.add('active');
-            event.currentTarget.classList.add('text-blue-400');
+        // 3. Khởi tạo Grid với tính năng click chọn
+        function initGrid() {
+            const g = document.getElementById('grid'); g.innerHTML = "";
+            for (let i = 1; i <= 30; i++) {
+                g.innerHTML += `<div class="slot" id="s-${i}" onclick="selectSlot(${i})">
+                    <b>Slot ${i}</b><br><span id="u-${i}">Available</span>
+                </div>`;
+            }
+        }
+
+        function selectSlot(id) {
+            // Xóa highlight cũ
+            document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
+            // Thêm highlight mới và điền số vào ô input
+            document.getElementById(`s-${id}`).classList.add('selected');
+            document.getElementById('sID').value = id;
+            console.log("Selected slot:", id);
         }
 
         function connect() {
             client = mqtt.connect(CFG.url, CFG.opt);
             client.on('connect', () => {
                 client.subscribe(['warehouse/status', 'warehouse/history', 'warehouse/history_init']);
-                client.publish('warehouse/command', JSON.stringify({action: "GET_STATUS"}));
-                client.publish('warehouse/command', JSON.stringify({action: "GET_HISTORY"}));
+                client.publish('warehouse/command', JSON.stringify({ action: "GET_STATUS" }));
+                client.publish('warehouse/command', JSON.stringify({ action: "GET_HISTORY" }));
             });
             client.on('message', (t, m) => {
                 const s = m.toString(), d = JSON.parse(s);
-                if(t === 'warehouse/status') updateUI(d);
-                if(t === 'warehouse/history' && s !== lastMsg) { addRow(d, false); lastMsg = s; }
-                if(t === 'warehouse/history_init') { 
-                    document.querySelector("#logTable tbody").innerHTML = ""; 
-                    d.forEach(l => addRow(l, true)); 
-                    document.getElementById('totalOps').innerText = d.length;
-                }
-            });
-        }
-
-        function initGrid() {
-            const g = document.getElementById('grid'); g.innerHTML = "";
-            for(let i=1; i<=30; i++) {
-                g.innerHTML += `<div class="bg-slate-800/40 border border-slate-700 p-6 rounded-2xl text-center cursor-pointer transition hover:bg-slate-800" id="s-${i}" onclick="selectSlot(${i})">
-                    <p class="text-[10px] text-slate-500 font-bold mb-2">SLOT ${i}</p>
-                    <i class="fas fa-cube text-3xl opacity-20" id="icon-${i}"></i>
-                    <p class="mt-2 text-[10px] font-mono truncate" id="u-${i}">EMPTY</p>
-                </div>`;
-            }
-        }
-
-        function selectSlot(id) {
-            document.querySelectorAll('[id^="s-"]').forEach(el => el.classList.remove('slot-active'));
-            document.getElementById(`s-${id}`).classList.add('slot-active');
-            document.getElementById('sID').value = `Slot ${id}`;
-            document.getElementById('sID').dataset.val = id;
-        }
-
-        function updateUI(data) {
-            let occ = 0;
-            for(let i=1; i<=30; i++) {
-                const s = data[`slot_${i}`], div = document.getElementById(`s-${i}`), span = document.getElementById(`u-${i}`), icon = document.getElementById(`icon-${i}`);
-                if(s && s.status === "Occupied") {
-                    occ++;
-                    div.classList.add('border-red-500/50', 'bg-red-500/5', 'occupied-glow');
-                    span.innerText = s.uid; span.classList.add('text-red-400');
-                    icon.className = "fas fa-box text-3xl text-red-500 opacity-100";
-                } else {
-                    div.classList.remove('border-red-500/50', 'bg-red-500/5', 'occupied-glow');
-                    span.innerText = "EMPTY"; span.classList.remove('text-red-400');
-                    icon.className = "fas fa-cube text-3xl opacity-20";
-                }
-            }
-            renderChart(occ, 30 - occ);
-        }
-
-        function renderChart(occ, emp) {
-            const ctx = document.getElementById('utilChart').getContext('2d');
-            if(chartObj) chartObj.destroy();
-            chartObj = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Occupied', 'Empty'],
-                    datasets: [{
-                        data: [occ, emp],
-                        backgroundColor: ['#ef4444', '#334155'],
-                        borderWidth: 0,
-                        hoverOffset: 10
-                    }]
-                },
-                options: {
-                    cutout: '75%',
-                    plugins: {
-                        legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 10, weight: 'bold' } } },
-                        tooltip: { enabled: true }
-                    }
-                }
+                if (t === 'warehouse/status') updateUI(d);
+                if (t === 'warehouse/history' && s !== lastMsg) { addRow(d, false); lastMsg = s; }
+                if (t === 'warehouse/history_init') { document.querySelector("#hTable tbody").innerHTML = ""; d.forEach(l => addRow(l, true)); }
             });
         }
 
         function sendCmd(act) {
-            const sid = document.getElementById('sID').dataset.val;
-            if(!sid) return Swal.fire({ icon: 'warning', title: 'Select a slot first!', background: '#1e293b', color: '#fff' });
-            client.publish('warehouse/command', JSON.stringify({action: act, slot_id: parseInt(sid), uid: document.getElementById('uID').value || "N/A"}));
-            document.getElementById('sID').value = ""; document.getElementById('uID').dataset.val = "";
-            document.getElementById('uID').value = "";
-            document.querySelectorAll('[id^="s-"]').forEach(el => el.classList.remove('slot-active'));
+            const sidInput = document.getElementById('sID');
+            const uidInput = document.getElementById('uID');
+            const sid = sidInput.value;
+
+            if (!sid) return alert("Vui lòng chọn 1 ô trên bản đồ!");
+
+            // Đánh dấu ô đang tương tác để nháy sáng
+            interactingSlot = sid;
+
+            client.publish('warehouse/command', JSON.stringify({ action: act, slot_id: parseInt(sid), uid: uidInput.value || "N/A" }));
+
+            // Tự động xóa trống ô nhập
+            sidInput.value = "";
+            uidInput.value = "";
+            document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
         }
 
-        function resetSSD() {
-            Swal.fire({
-                title: 'Clear SSD Logs?',
-                text: "Confirm admin password to wipe Raspberry Pi history.",
-                input: 'password',
-                background: '#1e293b', color: '#fff',
-                showCancelButton: true,
-                confirmButtonColor: '#ef4444'
-            }).then((res) => {
-                if(res.value === "hcmute2026") {
-                    // Sửa lệnh xóa chính xác để Pi hiểu
-                    client.publish('warehouse/command', JSON.stringify({action: "RESET_HISTORY"}));
-                    Swal.fire({ icon: 'success', title: 'Wiped!', background: '#1e293b', color: '#fff' });
+        function updateUI(data) {
+            for (let i = 1; i <= 30; i++) {
+                const s = data[`slot_${i}`], div = document.getElementById(`s-${i}`), span = document.getElementById(`u-${i}`);
+                if (s && s.status === "Occupied") { div.classList.add('occupied'); span.innerText = s.uid; }
+                else { div.classList.remove('occupied'); span.innerText = "Available"; }
+
+                // Hiệu ứng nháy sáng 3s khi Robot đang gắp hàng
+                if (interactingSlot == i) {
+                    div.classList.add('blink-glow');
+                    setTimeout(() => {
+                        div.classList.remove('blink-glow');
+                        interactingSlot = null;
+                    }, 3000);
                 }
-            });
+            }
+        }
+
+        function showTab(id) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            event.currentTarget.classList.add('active');
         }
 
         function addRow(l, batch) {
-            const row = `<tr class="hover:bg-slate-800/50 transition border-b border-slate-800">
-                <td class="p-4 text-xs opacity-40">${l.time}</td>
-                <td class="p-4 font-bold">Slot ${l.slot}</td>
-                <td class="p-4"><span class="px-2 py-1 rounded-full text-[9px] font-bold ${l.act === 'IMPORT' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'}">${l.act}</span></td>
-                <td class="p-4 font-mono text-xs">${l.uid}</td>
-            </tr>`;
-            const tb = document.querySelector("#logTable tbody");
-            if(batch) tb.insertAdjacentHTML('beforeend', row);
-            else tb.insertAdjacentHTML('afterbegin', row);
+            const row = `<tr><td>${l.time}</td><td>Slot ${l.slot}</td><td><b>${l.act}</b></td><td>${l.uid}</td></tr>`;
+            document.querySelector("#hTable tbody").insertAdjacentHTML(batch ? 'beforeend' : 'afterbegin', row);
         }
 
-        function filterLogs() {
-            const q = document.getElementById('logSearch').value.toLowerCase();
-            document.querySelectorAll("#logTable tbody tr").forEach(tr => {
-                tr.style.display = tr.innerText.toLowerCase().includes(q) ? "" : "none";
-            });
-        }
-
-        function exportExcel() {
-            const wb = XLSX.utils.table_to_book(document.getElementById("logTable"));
-            XLSX.writeFile(wb, "ASRS_Operations_Log.xlsx");
+        function adminAction(type) {
+            if (prompt("Admin Password:") === "hcmute2026") {
+                if (type === 'EXCEL') {
+                    const wb = XLSX.utils.table_to_book(document.getElementById("hTable"));
+                    XLSX.writeFile(wb, "Warehouse_Report.xlsx");
+                } else client.publish('warehouse/command', JSON.stringify({ action: "RESET_HISTORY" }));
+            } else alert("Denied!");
         }
     </script>
 </body>
+
 </html>
