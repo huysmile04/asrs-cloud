@@ -29,7 +29,7 @@
         #login-overlay { position: fixed; inset: 0; background: #1a1a2e; z-index: 100; display: flex; justify-content: center; align-items: center; }
         .login-box { background: #16213e; padding: 30px; border-radius: 10px; border: 1px solid #e94560; }
         .login-box input { display: block; width: 250px; padding: 12px; margin: 10px 0; border-radius: 5px; border: none; outline: none; }
-
+        
         #main-content { display: none; max-width: 1000px; margin: 0 auto; }
         .tabs { display: flex; justify-content: center; margin-bottom: 20px; border-bottom: 2px solid #0f3460; }
         .tab-btn { padding: 12px 25px; background: #16213e; border: none; color: #888; cursor: pointer; border-radius: 8px 8px 0 0; margin: 0 2px; font-weight: bold; }
@@ -135,7 +135,6 @@
             client = mqtt.connect(CFG.url, CFG.opt);
             client.on('connect', () => {
                 client.subscribe(['warehouse/status', 'warehouse/history', 'warehouse/history_init']);
-
                 client.publish('warehouse/command', JSON.stringify({action: "GET_STATUS"}));
                 client.publish('warehouse/command', JSON.stringify({action: "GET_HISTORY"}));
             });
@@ -170,7 +169,7 @@
                 const s = data[`slot_${i}`], div = document.getElementById(`s-${i}`), span = document.getElementById(`u-${i}`);
                 if(s && s.status === "Occupied") { div.classList.add('occupied'); span.innerText = s.uid; }
                 else { div.classList.remove('occupied'); span.innerText = "Available"; }
-
+                
                 // Hiệu ứng nháy sáng 3s khi Robot đang gắp hàng
                 if(interactingSlot == i) {
                     div.classList.add('blink-glow');
