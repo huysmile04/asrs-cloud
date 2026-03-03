@@ -1,98 +1,254 @@
-import os
-import time
-import json
-import ssl
-import paho.mqtt.client as mqtt
-from datetime import datetime
-
-# --- CẤU HÌNH HỆ THỐNG ---
-# Đảm bảo thư mục tồn tại
-DATA_DIR = "/home/lhuy/data"
-if not os.path.exists(DATA_DIR):
-    os.makedirs(DATA_DIR)
-
-DB_PATH = os.path.join(DATA_DIR, "warehouse_30.json")
-HIST_PATH = os.path.join(DATA_DIR, "history_30.json")
-
-# Thông tin MQTT
-MQTT_BROKER = "5031841c1f8d4218bafa640220641d55.s1.eu.hivemq.cloud"
-MQTT_PORT = 8883  # Đã bổ sung
-MQTT_USER = "lhuy04"
-MQTT_PASS = "Hcmute2026"
-
-client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-
-def load_json(path, default):
-    if os.path.exists(path):
-        try:
-            with open(path, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except:
-            return default
-    return default
-
-def save_json(path, data):
-    with open(path, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=4)
-
-def on_message(client, userdata, msg):
-    try:
-        cmd = json.loads(msg.payload.decode())
-        act = cmd.get("action")
-        sid = cmd.get("slot_id")
-        uid = cmd.get("uid")
-
-        if act == "GET_STATUS":
-            data = load_json(DB_PATH, {})
-            client.publish("warehouse/status", json.dumps(data), qos=1, retain=True)
-        
-        elif act == "GET_HISTORY":
-            history = load_json(HIST_PATH, [])
-            client.publish("warehouse/history_init", json.dumps(history), qos=1)
-            
-        elif act == "IMPORT":
-            process_act(sid, "Occupied", uid)
-            
-        elif act == "EXPORT":
-            process_act(sid, "Available", None)
-            
-    except Exception as e:
-        print(f"Error handling message: {e}")
-
-def process_act(sid, status, uid):
-    data = load_json(DB_PATH, {})
-    key = f"slot_{sid}"
-    data[key] = {
-        "id": sid, 
-        "status": status, 
-        "uid": uid, 
-        "last": datetime.now().strftime("%H:%M:%S")
-    }
-    save_json(DB_PATH, data)
-    client.publish("warehouse/status", json.dumps(data), qos=1, retain=True)
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AS/RS Pro | HCMUTE Thesis</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
-    # Ghi nhật ký SSD
-    hist = load_json(HIST_PATH, [])
-    new_log = {
-        "time": datetime.now().strftime("%H:%M:%S"), 
-        "slot": sid, 
-        "act": "IMPORT" if status=="Occupied" else "EXPORT", 
-        "uid": uid if uid else "---"
-    }
-    hist.append(new_log)
-    save_json(HIST_PATH, hist[-100:])
-    client.publish("warehouse/history", json.dumps(new_log), qos=1)
+    <style>
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); }
+        .slot-glow { animation: glow 1.5s infinite alternate; }
+        @keyframes glow { from { box-shadow: 0 0 5px #3b82f6; } to { box-shadow: 0 0 20px #3b82f6; } }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
 
-# Thiết lập kết nối bảo mật TLS
-client.tls_set(cert_reqs=ssl.CERT_REQUIRED)
-client.username_pw_set(MQTT_USER, MQTT_PASS)
-client.on_message = on_message
+    <div id="login-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950">
+        <div class="glass p-8 rounded-2xl border border-slate-700 w-96 shadow-2xl">
+            <div class="text-center mb-6">
+                <i class="fas fa-shield-halved text-4xl text-blue-500 mb-2"></i>
+                <h2 class="text-2xl font-bold">AS/RS SECURE LOGIN</h2>
+            </div>
+            <input type="text" id="user" placeholder="Username" class="w-full bg-slate-800 p-3 rounded-lg mb-4 outline-none border border-slate-600 focus:border-blue-500">
+            <input type="password" id="pass" placeholder="Password" class="w-full bg-slate-800 p-3 rounded-lg mb-6 outline-none border border-slate-600 focus:border-blue-500">
+            <button onclick="handleLogin()" class="w-full bg-blue-600 hover:bg-blue-700 p-3 rounded-lg font-bold transition">AUTHENTICATE</button>
+        </div>
+    </div>
 
-try:
-    print(f"Connecting to {MQTT_BROKER}...")
-    client.connect(MQTT_BROKER, MQTT_PORT, 60)
-    client.subscribe("warehouse/command")
-    print("--- AS/RS BACKEND ONLINE ---")
-    client.loop_forever()
-except Exception as e:
-    print(f"Connection failed: {e}")
+    <div id="app-content" class="hidden">
+        <nav class="bg-slate-800 border-b border-slate-700 p-4 sticky top-0 z-40">
+            <div class="container mx-auto flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <img src="ute_logo.png" class="h-10"> <span class="font-bold text-lg hidden md:block">SMART WAREHOUSE AI</span>
+                </div>
+                <div class="flex gap-4">
+                    <button onclick="switchTab('tab-dash')" class="nav-link text-blue-400 font-bold"><i class="fas fa-chart-line mr-1"></i> DASHBOARD</button>
+                    <button onclick="switchTab('tab-map')" class="nav-link hover:text-blue-400"><i class="fas fa-th mr-1"></i> MAP</button>
+                    <button onclick="switchTab('tab-logs')" class="nav-link hover:text-blue-400"><i class="fas fa-history mr-1"></i> LOGS</button>
+                    <button onclick="logout()" class="text-red-400 ml-4"><i class="fas fa-sign-out-alt"></i></button>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container mx-auto p-4 md:p-6">
+            <div id="tab-dash" class="tab-content active space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
+                        <h4 class="text-slate-400 text-sm uppercase">Utilization</h4>
+                        <canvas id="utilChart" class="mt-4"></canvas>
+                    </div>
+                    <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 flex flex-col justify-center items-center">
+                        <h4 class="text-slate-400 text-sm uppercase mb-4">Live Throughput</h4>
+                        <div class="text-5xl font-bold text-green-500" id="throughput">0</div>
+                        <p class="text-slate-500 mt-2">items / session</p>
+                    </div>
+                    <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
+                        <h4 class="text-slate-400 text-sm uppercase mb-4">System Status</h4>
+                        <div class="space-y-3">
+                            <div class="flex justify-between"><span>MQTT Cloud</span> <span class="text-green-500">● Connected</span></div>
+                            <div class="flex justify-between"><span>Raspberry Pi</span> <span class="text-green-500">● Active</span></div>
+                            <div class="flex justify-between"><span>Security</span> <span class="text-blue-500">● JWT Encrypted</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-map" class="tab-content space-y-6">
+                <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 flex flex-wrap gap-4 justify-center">
+                    <div class="flex flex-col">
+                        <label class="text-xs text-slate-500 mb-1">Selected Slot</label>
+                        <input type="number" id="sID" readonly class="bg-slate-900 border border-slate-600 p-2 rounded w-24 text-blue-400 font-bold text-center">
+                    </div>
+                    <div class="flex flex-col">
+                        <label class="text-xs text-slate-500 mb-1">Product Data / RFID</label>
+                        <input type="text" id="uID" placeholder="Scan Tag..." class="bg-slate-900 border border-slate-600 p-2 rounded w-48 outline-none focus:border-blue-500">
+                    </div>
+                    <div class="flex items-end gap-2">
+                        <button onclick="sendCmd('IMPORT')" class="bg-emerald-600 hover:bg-emerald-700 px-6 py-2 rounded-lg font-bold transition">IMPORT</button>
+                        <button onclick="sendCmd('EXPORT')" class="bg-slate-700 hover:bg-slate-600 border border-emerald-600 px-6 py-2 rounded-lg font-bold transition">EXPORT</button>
+                    </div>
+                </div>
+                <div id="grid" class="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-10 gap-3"></div>
+            </div>
+
+            <div id="tab-logs" class="tab-content bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+                <div class="p-4 bg-slate-700/50 flex justify-between items-center">
+                    <div class="relative w-full max-w-md">
+                        <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
+                        <input type="text" id="logSearch" onkeyup="filterLogs()" placeholder="Search by UID, Action or Slot..." class="w-full bg-slate-900 p-2 pl-10 rounded-lg outline-none">
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="exportExcel()" class="bg-green-600 p-2 rounded text-sm"><i class="fas fa-file-excel"></i></button>
+                        <button onclick="resetSSD()" class="bg-red-600 p-2 rounded text-sm"><i class="fas fa-trash-alt"></i></button>
+                    </div>
+                </div>
+                <div class="overflow-x-auto max-h-[500px]">
+                    <table class="w-full text-left" id="logTable">
+                        <thead class="bg-slate-900 text-slate-400 sticky top-0">
+                            <tr><th class="p-4">Time</th><th class="p-4">Slot</th><th class="p-4">Action</th><th class="p-4">Product UID</th></tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-700"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <footer class="text-center p-8 text-slate-500 text-sm">
+            <p>Hệ thống AS/RS tích hợp IIoT & RFID - Đồ án Tốt nghiệp Huy (HCMUTE-2026)</p>
+            <p class="mt-1">Link truy cập: <span class="text-blue-500">bit.ly/asrs-cloud</span></p>
+        </footer>
+    </div>
+
+    <script>
+        const CFG = { url: 'wss://5031841c1f8d4218bafa640220641d55.s1.eu.hivemq.cloud:8884/mqtt', opt: { username: 'lhuy04', password: 'Hcmute2026', protocol: 'wss', port: 8884 } };
+        let client, lastMsg = "", interactingSlot = null, throughputCount = 0;
+        let chartInstance = null;
+
+        // AUTH SYSTEM
+        function handleLogin() {
+            const u = document.getElementById('user').value;
+            const p = document.getElementById('pass').value;
+            if(u === "admin" && p === "hcmute2026") {
+                document.getElementById('login-screen').classList.add('hidden');
+                document.getElementById('app-content').classList.remove('hidden');
+                initGrid(); connect();
+                Swal.fire({ icon: 'success', title: 'Welcome Admin!', timer: 1500, showConfirmButton: false, background: '#1e293b', color: '#fff' });
+            } else {
+                Swal.fire({ icon: 'error', title: 'Access Denied', text: 'Wrong credentials', background: '#1e293b', color: '#fff' });
+            }
+        }
+
+        // NAVIGATION
+        function switchTab(id) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('text-blue-400', 'font-bold'));
+            document.getElementById(id).classList.add('active');
+            event.currentTarget.classList.add('text-blue-400', 'font-bold');
+        }
+
+        // MQTT LOGIC
+        function connect() {
+            client = mqtt.connect(CFG.url, CFG.opt);
+            client.on('connect', () => {
+                client.subscribe(['warehouse/status', 'warehouse/history', 'warehouse/history_init']);
+                client.publish('warehouse/command', JSON.stringify({action: "GET_STATUS"}));
+                client.publish('warehouse/command', JSON.stringify({action: "GET_HISTORY"}));
+            });
+            client.on('message', (t, m) => {
+                const s = m.toString(), d = JSON.parse(s);
+                if(t === 'warehouse/status') updateUI(d);
+                if(t === 'warehouse/history' && s !== lastMsg) { addRow(d, false); lastMsg = s; throughputCount++; updateDash(); }
+                if(t === 'warehouse/history_init') { 
+                    document.querySelector("#logTable tbody").innerHTML = ""; 
+                    d.forEach(l => addRow(l, true)); 
+                    throughputCount = d.length; updateDash();
+                }
+            });
+        }
+
+        // UI RENDER
+        function initGrid() {
+            const g = document.getElementById('grid'); g.innerHTML = "";
+            for(let i=1; i<=30; i++) {
+                g.innerHTML += `<div class="bg-emerald-600/20 border border-emerald-600 p-4 rounded-xl text-center cursor-pointer transition hover:scale-105" id="s-${i}" onclick="selectSlot(${i})">
+                    <span class="block text-xs opacity-50">#${i}</span>
+                    <i class="fas fa-box-open text-2xl my-2" id="icon-${i}"></i>
+                    <p class="text-[10px] font-mono truncate" id="u-${i}">EMPTY</p>
+                </div>`;
+            }
+        }
+
+        function selectSlot(id) {
+            document.querySelectorAll('[id^="s-"]').forEach(el => el.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2', 'ring-offset-slate-900'));
+            document.getElementById(`s-${id}`).classList.add('ring-2', 'ring-blue-500', 'ring-offset-2', 'ring-offset-slate-900');
+            document.getElementById('sID').value = id;
+        }
+
+        function updateUI(data) {
+            let occupied = 0;
+            for(let i=1; i<=30; i++) {
+                const s = data[`slot_${i}`], div = document.getElementById(`s-${i}`), span = document.getElementById(`u-${i}`), icon = document.getElementById(`icon-${i}`);
+                if(s && s.status === "Occupied") { 
+                    occupied++;
+                    div.classList.replace('border-emerald-600', 'border-red-500');
+                    div.classList.replace('bg-emerald-600/20', 'bg-red-500/20');
+                    span.innerText = s.uid;
+                    icon.className = "fas fa-box text-2xl my-2 text-red-500";
+                } else {
+                    div.classList.replace('border-red-500', 'border-emerald-600');
+                    div.classList.replace('bg-red-500/20', 'bg-emerald-600/20');
+                    span.innerText = "EMPTY";
+                    icon.className = "fas fa-box-open text-2xl my-2 text-emerald-500 opacity-30";
+                }
+                if(interactingSlot == i) {
+                    div.classList.add('slot-glow');
+                    setTimeout(() => { div.classList.remove('slot-glow'); interactingSlot = null; }, 3000);
+                }
+            }
+            updateChart(occupied, 30 - occupied);
+        }
+
+        function updateDash() { document.getElementById('throughput').innerText = throughputCount; }
+
+        function updateChart(occ, emp) {
+            const ctx = document.getElementById('utilChart').getContext('2d');
+            if(chartInstance) chartInstance.destroy();
+            chartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: { labels: ['Occupied', 'Empty'], datasets: [{ data: [occ, emp], backgroundColor: ['#ef4444', '#1e293b'], borderWidth: 0 }] },
+                options: { cutout: '80%', plugins: { legend: { display: false } } }
+            });
+        }
+
+        function addRow(l, batch) {
+            const row = `<tr class="hover:bg-slate-700/50 transition">
+                <td class="p-4 text-xs opacity-50">${l.time}</td>
+                <td class="p-4 font-bold">Slot ${l.slot}</td>
+                <td class="p-4"><span class="px-2 py-1 rounded text-[10px] ${l.act === 'IMPORT' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-blue-500/20 text-blue-400'}">${l.act}</span></td>
+                <td class="p-4 font-mono text-sm">${l.uid}</td>
+            </tr>`;
+            document.querySelector("#logTable tbody").insertAdjacentHTML(batch ? 'beforeend' : 'afterbegin', row);
+        }
+
+        // SEARCH & FILTER
+        function filterLogs() {
+            const q = document.getElementById('logSearch').value.toLowerCase();
+            document.querySelectorAll("#logTable tbody tr").forEach(tr => {
+                tr.style.display = tr.innerText.toLowerCase().includes(q) ? "" : "none";
+            });
+        }
+
+        function sendCmd(act) {
+            const sid = document.getElementById('sID').value;
+            if(!sid) return Swal.fire({ icon: 'warning', title: 'Missing Info', text: 'Select a slot first!', background: '#1e293b', color: '#fff' });
+            interactingSlot = sid;
+            client.publish('warehouse/command', JSON.stringify({action: act, slot_id: parseInt(sid), uid: document.getElementById('uID').value || "N/A"}));
+            document.getElementById('sID').value = ""; document.getElementById('uID').value = "";
+            document.querySelectorAll('.slot').forEach(s => s.classList.remove('ring-2'));
+        }
+
+        function exportExcel() {
+            const wb = XLSX.utils.table_to_book(document.getElementById("logTable"));
+            XLSX.writeFile(wb, "ASRS_Operations_Report.xlsx");
+        }
+    </script>
+</body>
+</html>
