@@ -2,180 +2,116 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AS/RS Control Center - HCMUTE Project</title>
-    <link rel="shortcut icon" href="https://hcmute.edu.vn/Resources/Imagephoto/logo.png">
+    <title>AS/RS Control Center | bit.ly/asrs-cloud</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #1a1a2e; color: #ffffff; text-align: center; padding: 20px; }
-        h1 { color: #e94560; margin-bottom: 5px; }
-        .status-bar { background: #16213e; padding: 10px; border-radius: 5px; margin: 15px auto; max-width: 1000px; border: 1px solid #0f3460; font-weight: bold; }
-        
-        .control-panel { background: #16213e; padding: 20px; border-radius: 10px; max-width: 1000px; margin: 20px auto; display: flex; gap: 10px; justify-content: center; border: 1px solid #e94560; flex-wrap: wrap; }
-        input { padding: 12px; border-radius: 5px; border: none; width: 140px; font-size: 16px; background: #0f3460; color: white; }
-        button { padding: 12px 25px; border-radius: 5px; border: none; cursor: pointer; font-weight: bold; color: white; transition: 0.3s; }
-        .btn-import { background: #e94560; }
-        .btn-export { background: #0f3460; border: 1px solid #e94560; }
-        .btn-reset { background: #c0392b; font-size: 12px; padding: 5px 10px; }
-        .btn-excel { background: #27ae60; margin-top: 10px; }
-        button:hover { opacity: 0.8; transform: scale(1.02); }
-
-        .grid-container { display: none; grid-template-columns: repeat(6, 1fr); gap: 12px; max-width: 1000px; margin: 0 auto; padding: 20px; }
-        .slot { background-color: #27ae60; padding: 15px; border-radius: 8px; border: 2px solid #0f3460; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-        .slot.occupied { background-color: #e74c3c !important; }
-        .slot b { font-size: 20px; display: block; margin-bottom: 5px; }
-        .slot span { font-size: 13px; font-family: monospace; }
-
-        .history-section { max-width: 1000px; margin: 30px auto; background: #16213e; padding: 20px; border-radius: 10px; display: none; }
+        body { font-family: 'Segoe UI', Arial; background: #1a1a2e; color: white; text-align: center; padding: 20px; }
+        .status-bar { background: #16213e; padding: 10px; border-radius: 5px; margin: 15px auto; max-width: 1000px; border: 1px solid #0f3460; color: #2ecc71; font-weight: bold; }
+        .control-panel { background: #16213e; padding: 20px; border-radius: 10px; max-width: 1000px; margin: 20px auto; display: flex; gap: 10px; justify-content: center; border: 1px solid #e94560; }
+        .grid-container { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; max-width: 1000px; margin: 0 auto; }
+        .slot { background: #27ae60; padding: 15px; border-radius: 8px; border: 1px solid #0f3460; }
+        .slot.occupied { background: #e74c3c; }
+        .history-section { max-width: 1000px; margin: 30px auto; background: #16213e; padding: 20px; border-radius: 10px; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { border: 1px solid #0f3460; padding: 12px; text-align: center; }
+        th, td { border: 1px solid #0f3460; padding: 10px; }
         th { background: #0f3460; color: #e94560; }
-        tr:nth-child(even) { background: #1a1a2e; }
+        input { padding: 10px; border-radius: 5px; border: none; background: #0f3460; color: white; }
+        button { cursor: pointer; border: none; border-radius: 5px; padding: 10px 20px; font-weight: bold; color: white; transition: 0.3s; }
+        footer { margin-top: 30px; padding: 20px; border-top: 1px solid #0f3460; font-size: 13px; color: #888; }
     </style>
 </head>
 <body>
+    <h1>🚀 IOT-BASED AS/RS CONTROL CENTER</h1>
+    <div class="status-bar" id="stat">🟢 SYSTEM ONLINE</div>
 
-    <h1>🚀 AS/RS WAREHOUSE CONTROL CENTER</h1>
-    <p>HCMUTE Graduation Project - Student: Huy</p>
-
-    <div class="status-bar" id="stat">🔐 Awaiting Authentication...</div>
-
-    <div class="control-panel" id="ctrl-panel">
-        <input type="number" id="sID" placeholder="Slot ID (1-30)" min="1" max="30">
-        <input type="text" id="uID" placeholder="RFID Tag (UID)">
-        <button class="btn-import" onclick="sendCmd('IMPORT')">IMPORT</button>
-        <button class="btn-export" onclick="sendCmd('EXPORT')">EXPORT</button>
+    <div class="control-panel">
+        <input type="number" id="sID" placeholder="Slot (1-30)" style="width:80px">
+        <input type="text" id="uID" placeholder="RFID Tag UID">
+        <button onclick="send('IMPORT')" style="background:#e94560">IMPORT</button>
+        <button onclick="send('EXPORT')" style="background:#0f3460; border:1px solid #e94560">EXPORT</button>
     </div>
 
     <div class="grid-container" id="grid"></div>
 
-    <div class="history-section" id="hist-sec">
+    <div class="history-section">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h3>📜 OPERATION LOGS (SSD PERSISTENT)</h3>
+            <h3>📜 OPERATION LOGS (SSD)</h3>
             <div>
-                <button class="btn-excel" onclick="exportToExcel()">📊 EXPORT EXCEL</button>
-                <button class="btn-reset" onclick="resetLog()">RESET SSD LOG</button>
+                <button onclick="exportExcel()" style="background:#27ae60; margin-right:5px">EXCEL</button>
+                <button onclick="resetHist()" style="background:#e74c3c">CLEAR SSD</button>
             </div>
         </div>
         <table id="hTable">
-            <thead>
-                <tr>
-                    <th>Timestamp</th>
-                    <th>Location</th>
-                    <th>Action</th>
-                    <th>RFID UID</th>
-                </tr>
-            </thead>
+            <thead><tr><th>Time</th><th>Location</th><th>Action</th><th>UID</th></tr></thead>
             <tbody></tbody>
         </table>
     </div>
 
+    <footer>
+        <p>Access Link: <b style="color: #e94560;">bit.ly/asrs-cloud</b></p>
+        <p>© 2026 HCMUTE Graduation Project - Student: Huy</p>
+    </footer>
+
     <script>
-        const CFG = { 
-            url: 'wss://5031841c1f8d4218bafa640220641d55.s1.eu.hivemq.cloud:8884/mqtt', 
-            opt: { username: 'lhuy04', password: 'Hcmute2026', protocol: 'wss', port: 8884 } 
-        };
-        let mqttClient;
-        let lastHistoryMsg = ""; // Để chống trùng lặp dữ liệu
+        const CFG = { url: 'wss://5031841c1f8d4218bafa640220641d55.s1.eu.hivemq.cloud:8884/mqtt', opt: { username: 'lhuy04', password: 'Hcmute2026', protocol: 'wss', port: 8884 } };
+        let client, lastMsg = "";
 
         window.onload = () => {
-            if (prompt("Security Password:") === "hcmute2026") {
-                document.getElementById('ctrl-panel').style.display = 'flex';
-                document.getElementById('grid').style.display = 'grid';
-                document.getElementById('hist-sec').style.display = 'block';
-                initGrid(); 
-                connectMQTT();
-            } else { location.reload(); }
+            if(prompt("Password:") === "hcmute2026") { initGrid(); connect(); }
+            else { location.reload(); }
         };
 
         function initGrid() {
             const g = document.getElementById('grid');
-            for(let i=1; i<=30; i++) {
-                g.innerHTML += `<div class="slot" id="s-${i}"><b>Slot ${i}</b><span id="u-${i}">Available</span></div>`;
-            }
+            for(let i=1; i<=30; i++) g.innerHTML += `<div class="slot" id="s-${i}"><b>Slot ${i}</b><br><span id="u-${i}">Available</span></div>`;
         }
 
-        function connectMQTT() {
-            mqttClient = mqtt.connect(CFG.url, CFG.opt);
-            mqttClient.on('connect', () => {
-                const s = document.getElementById('stat');
-                s.innerText = "🟢 SYSTEM ONLINE - CONNECTED TO CLOUD";
-                s.style.color = "#2ecc71";
-                mqttClient.subscribe(['warehouse/status', 'warehouse/history', 'warehouse/history_init']);
-                // Request stored history from Raspberry Pi
-                mqttClient.publish('warehouse/command', JSON.stringify({action: "GET_HISTORY"}));
+        function connect() {
+            client = mqtt.connect(CFG.url, CFG.opt);
+            client.on('connect', () => {
+                client.subscribe(['warehouse/status', 'warehouse/history', 'warehouse/history_init']);
+                client.publish('warehouse/command', JSON.stringify({action: "GET_HISTORY"}));
             });
-
-            mqttClient.on('message', (topic, message) => {
-                const msgStr = message.toString();
-                const data = JSON.parse(msgStr);
-
-                if (topic === 'warehouse/status') updateUI(data);
-
-                // Live history update with duplicate prevention
-                if (topic === 'warehouse/history') {
-                    if (msgStr !== lastHistoryMsg) {
-                        addRow(data, false);
-                        lastHistoryMsg = msgStr;
-                    }
-                }
-
-                // Batch history load on F5
-                if (topic === 'warehouse/history_init') {
-                    const tbody = document.querySelector("#hTable tbody");
-                    tbody.innerHTML = ""; 
-                    data.forEach(log => addRow(log, true));
-                }
+            client.on('message', (t, m) => {
+                const s = m.toString();
+                const d = JSON.parse(s);
+                if(t === 'warehouse/status') updateUI(d);
+                if(t === 'warehouse/history' && s !== lastMsg) { addRow(d, false); lastMsg = s; } // Chống Double
+                if(t === 'warehouse/history_init') { document.querySelector("#hTable tbody").innerHTML = ""; d.forEach(l => addRow(l, true)); }
             });
         }
 
-        function sendCmd(act) {
+        function send(act) {
             const sid = document.getElementById('sID').value;
             const uid = document.getElementById('uID').value;
-            if(!sid) return alert("Please enter Slot ID!");
-            const cmd = { action: act, slot_id: parseInt(sid), uid: uid || "N/A" };
-            mqttClient.publish('warehouse/command', JSON.stringify(cmd), { qos: 1 });
-            alert(`Command sent: ${act} Slot ${sid}`);
+            if(!sid) return alert("Enter Slot ID!");
+            client.publish('warehouse/command', JSON.stringify({action: act, slot_id: parseInt(sid), uid: uid || "N/A"}));
         }
 
         function updateUI(data) {
             for(let i=1; i<=30; i++) {
                 const s = data[`slot_${i}`], div = document.getElementById(`s-${i}`), span = document.getElementById(`u-${i}`);
-                if(s.status === "Occupied") { 
-                    div.classList.add('occupied'); 
-                    span.innerText = s.uid; 
-                } else { 
-                    div.classList.remove('occupied'); 
-                    span.innerText = "Available"; 
-                }
+                if(s.status === "Occupied") { div.classList.add('occupied'); span.innerText = s.uid; }
+                else { div.classList.remove('occupied'); span.innerText = "Available"; }
             }
         }
 
         function addRow(l, isBatch) {
             const row = `<tr><td>${l.time}</td><td>Slot ${l.slot}</td><td><b>${l.act}</b></td><td>${l.uid}</td></tr>`;
-            const tbody = document.querySelector("#hTable tbody");
-            if(isBatch) tbody.insertAdjacentHTML('beforeend', row);
-            else tbody.insertAdjacentHTML('afterbegin', row);
+            const tb = document.querySelector("#hTable tbody");
+            if(isBatch) tb.insertAdjacentHTML('beforeend', row);
+            else tb.insertAdjacentHTML('afterbegin', row);
         }
 
-        function resetLog() {
-            if(confirm("Confirm: Clear all logs on Raspberry Pi SSD?")) {
-                mqttClient.publish('warehouse/command', JSON.stringify({action: "RESET_HISTORY"}));
-            }
+        function exportExcel() {
+            const wb = XLSX.utils.table_to_book(document.getElementById("hTable"));
+            XLSX.writeFile(wb, "Warehouse_Report.xlsx");
         }
 
-        function exportToExcel() {
-            const wb = XLSX.utils.table_to_book(document.getElementById("hTable"), {sheet: "Warehouse_Logs"});
-            XLSX.writeFile(wb, "Warehouse_Operation_Report.xlsx");
+        function resetHist() {
+            if(confirm("Clear SSD logs?")) client.publish('warehouse/command', JSON.stringify({action: "RESET_HISTORY"}));
         }
     </script>
-    <footer style="margin-top: 30px; padding: 10px; border-top: 1px solid #0f3460; font-size: 14px; color: #888;">
-    <p>System Access Link: <b style="color: #e94560;">bit.ly/asrs-cloud</b></p>
-    <p>© 2026 HCMUTE Graduation Project - Student: Huy</p>
-</footer>
 </body>
 </html>
-
-
-
