@@ -163,6 +163,8 @@
             const uid = document.getElementById('uID').value;
             if(!sid) return alert("Enter Slot ID!");
             client.publish('warehouse/command', JSON.stringify({action: act, slot_id: parseInt(sid), uid: uid || "N/A"}));
+            sidInput.value = "";
+            uidInput.value = "";
         }
 
         function updateUI(data) {
@@ -182,3 +184,4 @@
     </script>
 </body>
 </html>
+
