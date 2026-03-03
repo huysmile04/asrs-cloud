@@ -1,10 +1,22 @@
-import os, time, json, ssl
+import os
+import time
+import json
+import ssl
 import paho.mqtt.client as mqtt
 from datetime import datetime
 
-DB_PATH = "/home/lhuy/data/warehouse_30.json"
-HIST_PATH = "/home/lhuy/data/history_30.json"
+# --- CẤU HÌNH HỆ THỐNG ---
+# Đảm bảo thư mục tồn tại
+DATA_DIR = "/home/lhuy/data"
+if not os.path.exists(DATA_DIR):
+    os.makedirs(DATA_DIR)
+
+DB_PATH = os.path.join(DATA_DIR, "warehouse_30.json")
+HIST_PATH = os.path.join(DATA_DIR, "history_30.json")
+
+# Thông tin MQTT
 MQTT_BROKER = "5031841c1f8d4218bafa640220641d55.s1.eu.hivemq.cloud"
+MQTT_PORT = 8883  # Đã bổ sung
 MQTT_USER = "lhuy04"
 MQTT_PASS = "Hcmute2026"
 
@@ -12,46 +24,75 @@ client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
 
 def load_json(path, default):
     if os.path.exists(path):
-        with open(path, 'r', encoding='utf-8') as f: return json.load(f)
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            return default
     return default
 
 def save_json(path, data):
-    with open(path, 'w', encoding='utf-8') as f: json.dump(data, f, indent=4)
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=4)
 
 def on_message(client, userdata, msg):
     try:
         cmd = json.loads(msg.payload.decode())
-        act, sid, uid = cmd.get("action"), cmd.get("slot_id"), cmd.get("uid")
+        act = cmd.get("action")
+        sid = cmd.get("slot_id")
+        uid = cmd.get("uid")
 
         if act == "GET_STATUS":
             data = load_json(DB_PATH, {})
             client.publish("warehouse/status", json.dumps(data), qos=1, retain=True)
+        
         elif act == "GET_HISTORY":
             history = load_json(HIST_PATH, [])
             client.publish("warehouse/history_init", json.dumps(history), qos=1)
+            
         elif act == "IMPORT":
             process_act(sid, "Occupied", uid)
+            
         elif act == "EXPORT":
             process_act(sid, "Available", None)
-    except Exception as e: print(f"Error: {e}")
+            
+    except Exception as e:
+        print(f"Error handling message: {e}")
 
 def process_act(sid, status, uid):
     data = load_json(DB_PATH, {})
     key = f"slot_{sid}"
-    data[key] = {"id": sid, "status": status, "uid": uid, "last": datetime.now().strftime("%H:%M:%S")}
+    data[key] = {
+        "id": sid, 
+        "status": status, 
+        "uid": uid, 
+        "last": datetime.now().strftime("%H:%M:%S")
+    }
     save_json(DB_PATH, data)
     client.publish("warehouse/status", json.dumps(data), qos=1, retain=True)
     
-    # Nhật ký
+    # Ghi nhật ký SSD
     hist = load_json(HIST_PATH, [])
-    new_log = {"time": datetime.now().strftime("%H:%M:%S"), "slot": sid, "act": "IMPORT" if status=="Occupied" else "EXPORT", "uid": uid if uid else "---"}
+    new_log = {
+        "time": datetime.now().strftime("%H:%M:%S"), 
+        "slot": sid, 
+        "act": "IMPORT" if status=="Occupied" else "EXPORT", 
+        "uid": uid if uid else "---"
+    }
     hist.append(new_log)
     save_json(HIST_PATH, hist[-100:])
     client.publish("warehouse/history", json.dumps(new_log), qos=1)
 
+# Thiết lập kết nối bảo mật TLS
 client.tls_set(cert_reqs=ssl.CERT_REQUIRED)
 client.username_pw_set(MQTT_USER, MQTT_PASS)
 client.on_message = on_message
-client.connect(MQTT_BROKER, MQTT_PORT, 60)
-client.subscribe("warehouse/command")
-client.loop_forever()
+
+try:
+    print(f"Connecting to {MQTT_BROKER}...")
+    client.connect(MQTT_BROKER, MQTT_PORT, 60)
+    client.subscribe("warehouse/command")
+    print("--- AS/RS BACKEND ONLINE ---")
+    client.loop_forever()
+except Exception as e:
+    print(f"Connection failed: {e}")
