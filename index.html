@@ -2,144 +2,94 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>AS/RS Management System | HCMUTE</title>
+    <title>Smart AS/RS | bit.ly/asrs-cloud</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Arial; background: #1a1a2e; color: white; text-align: center; padding: 20px; margin: 0; }
-        h1 { color: #e94560; margin-bottom: 20px; }
+        body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: white; text-align: center; margin: 0; padding: 20px; }
+        /* Hiệu ứng nhấp nháy */
+        .blink { animation: blink-animation 0.5s steps(5, start) infinite; border: 3px solid white !important; }
+        @keyframes blink-animation { to { visibility: hidden; } }
+
+        #login-overlay { position: fixed; inset: 0; background: #1a1a2e; z-index: 100; display: flex; justify-content: center; align-items: center; }
+        .login-box { background: #16213e; padding: 30px; border-radius: 10px; border: 1px solid #e94560; }
+        .login-box input { display: block; width: 250px; padding: 10px; margin: 10px 0; border-radius: 5px; border: none; }
         
-        /* --- LOGIN MODAL --- */
-        #login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a2e; z-index: 999; display: flex; justify-content: center; align-items: center; }
-        .login-box { background: #16213e; padding: 40px; border-radius: 15px; border: 1px solid #e94560; width: 300px; box-shadow: 0 0 20px rgba(233, 69, 96, 0.3); }
-        .login-box input { width: 90%; padding: 12px; margin: 10px 0; border-radius: 5px; border: none; background: #0f3460; color: white; }
-        
-        /* --- MAIN CONTENT (HIDDEN BY DEFAULT) --- */
         #main-content { display: none; max-width: 1000px; margin: 0 auto; }
-        
-        /* --- TAB SYSTEM --- */
-        .tabs { display: flex; justify-content: center; gap: 5px; margin-bottom: 20px; border-bottom: 2px solid #0f3460; }
-        .tab-btn { background: #16213e; padding: 12px 25px; border: none; color: #888; cursor: pointer; border-radius: 10px 10px 0 0; font-weight: bold; transition: 0.3s; }
-        .tab-btn.active { background: #e94560; color: white; }
-        .tab-content { display: none; padding: 20px; background: #16213e; border-radius: 0 0 10px 10px; border: 1px solid #0f3460; border-top: none; }
+        .tabs { display: flex; justify-content: center; margin-bottom: 20px; }
+        .tab-btn { padding: 10px 20px; background: #16213e; border: none; color: white; cursor: pointer; border-radius: 5px 5px 0 0; margin: 0 2px; }
+        .tab-btn.active { background: #e94560; }
+        .tab-content { display: none; background: #16213e; padding: 20px; border-radius: 10px; border: 1px solid #0f3460; }
         .tab-content.active { display: block; }
 
-        /* --- STYLES REUSE --- */
-        .status-bar { background: #16213e; padding: 10px; border-radius: 5px; margin: 15px 0; border: 1px solid #0f3460; color: #2ecc71; font-weight: bold; }
-        .control-panel { background: #0f3460; padding: 20px; border-radius: 10px; display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
         .grid-container { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
-        .slot { background: #27ae60; padding: 15px; border-radius: 8px; border: 1px solid #0f3460; }
+        .slot { background: #27ae60; padding: 15px; border-radius: 5px; border: 1px solid #0f3460; transition: 0.3s; }
         .slot.occupied { background: #e74c3c; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #0f3460; padding: 10px; text-align: center; }
-        th { background: #0f3460; color: #e94560; }
-        button { cursor: pointer; border: none; border-radius: 5px; padding: 10px 20px; font-weight: bold; color: white; transition: 0.2s; }
-        footer { margin-top: 30px; font-size: 13px; color: #888; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #0f3460; padding: 10px; }
+        footer { margin-top: 20px; font-size: 12px; color: #555; }
     </style>
 </head>
 <body>
-
-    <h1>🚀 AS/RS CLOUD-BASED SYSTEM</h1>
+    <h1>🚀 AS/RS CONTROL CENTER</h1>
 
     <div id="login-overlay">
         <div class="login-box">
-            <h3>System Login</h3>
+            <h3>🔐 System Login</h3>
             <input type="text" id="user" placeholder="Username">
             <input type="password" id="pass" placeholder="Password">
-            <button onclick="checkLogin()" style="background:#e94560; width:100%">UNLOCK SYSTEM</button>
-            <p style="font-size: 11px; margin-top: 15px; color: #555;">HCMUTE Thesis - 2026</p>
+            <button onclick="doLogin()" style="width:100%; padding:10px; background:#e94560; color:white; border:none; border-radius:5px; cursor:pointer">LOGIN</button>
         </div>
     </div>
 
     <div id="main-content">
-        <div class="status-bar" id="stat">🟢 CONNECTION: SECURED</div>
-
         <div class="tabs">
-            <button class="tab-btn active" onclick="openTab(event, 'map')">WAREHOUSE MAP</button>
-            <button class="tab-btn" onclick="openTab(event, 'logs')">OPERATION LOGS</button>
-            <button class="tab-btn" onclick="openTab(event, 'tools')">SYSTEM TOOLS</button>
+            <button class="tab-btn active" onclick="showTab('tab-map')">WAREHOUSE MAP</button>
+            <button class="tab-btn" onclick="showTab('tab-logs')">OPERATION LOGS</button>
+            <button class="tab-btn" onclick="showTab('tab-tools')">SYSTEM TOOLS</button>
         </div>
 
-        <div id="map" class="tab-content active">
-            <div class="control-panel">
-                <input type="number" id="sID" placeholder="Slot ID" style="width:80px">
-                <input type="text" id="uID" placeholder="RFID Tag">
-                <button onclick="send('IMPORT')" style="background:#e94560">IMPORT</button>
-                <button onclick="send('EXPORT')" style="background:#0f3460; border:1px solid #e94560">EXPORT</button>
+        <div id="tab-map" class="tab-content active">
+            <div style="margin-bottom:20px; display:flex; gap:10px; justify-content:center">
+                <input type="number" id="sID" placeholder="Slot ID" style="width:80px; padding:10px">
+                <input type="text" id="uID" placeholder="RFID UID" style="padding:10px">
+                <button onclick="sendCmd('IMPORT')" style="background:#e94560; color:white; padding:10px 20px; border:none; border-radius:5px">IMPORT</button>
+                <button onclick="sendCmd('EXPORT')" style="background:#0f3460; color:white; padding:10px 20px; border:1px solid #e94560; border-radius:5px">EXPORT</button>
             </div>
             <div class="grid-container" id="grid"></div>
         </div>
 
-        <div id="logs" class="tab-content">
+        <div id="tab-logs" class="tab-content">
             <table id="hTable">
                 <thead><tr><th>Time</th><th>Location</th><th>Action</th><th>UID</th></tr></thead>
                 <tbody></tbody>
             </table>
         </div>
 
-        <div id="tools" class="tab-content">
-            <div style="display: flex; flex-direction: column; gap: 15px; align-items: center; padding: 30px;">
-                <p>⚠️ Administrative Actions (Password Required)</p>
-                <button onclick="secureAction('EXCEL')" style="background:#27ae60; width: 250px">📊 EXPORT EXCEL REPORT</button>
-                <button onclick="secureAction('RESET')" style="background:#e74c3c; width: 250px">🗑️ CLEAR SSD HISTORY</button>
-            </div>
+        <div id="tab-tools" class="tab-content">
+            <button onclick="adminAction('EXCEL')" style="background:#27ae60; color:white; padding:15px; border:none; border-radius:5px; margin:10px">📊 EXPORT EXCEL</button>
+            <button onclick="adminAction('RESET')" style="background:#e74c3c; color:white; padding:15px; border:none; border-radius:5px; margin:10px">🗑️ CLEAR SSD</button>
         </div>
 
         <footer>
-            <p>Access Point: <b style="color: #e94560;">bit.ly/asrs-cloud</b></p>
-            <p>© 2026 HCMUTE Graduation Project - Huy</p>
+            <p>Access: bit.ly/asrs-cloud | © 2026 HCMUTE - Huy</p>
         </footer>
     </div>
 
     <script>
         const CFG = { url: 'wss://5031841c1f8d4218bafa640220641d55.s1.eu.hivemq.cloud:8884/mqtt', opt: { username: 'lhuy04', password: 'Hcmute2026', protocol: 'wss', port: 8884 } };
-        const ADMIN_USER = "admin";
-        const ADMIN_PASS = "hcmute2026";
-        let client, lastMsg = "";
+        let client, lastMsg = "", targetedSlot = null;
 
-        // LOGIN LOGIC
-        function checkLogin() {
-            const u = document.getElementById('user').value;
-            const p = document.getElementById('pass').value;
-            if(u === ADMIN_USER && p === ADMIN_PASS) {
+        function doLogin() {
+            if(document.getElementById('user').value === "admin" && document.getElementById('pass').value === "hcmute2026") {
                 document.getElementById('login-overlay').style.display = 'none';
                 document.getElementById('main-content').style.display = 'block';
-                initGrid();
-                connect();
-            } else {
-                alert("Invalid Credentials!");
-            }
+                initGrid(); connect();
+            } else alert("Wrong credentials!");
         }
 
-        // TAB LOGIC
-        function openTab(evt, tabName) {
-            let i, content, tabs;
-            content = document.getElementsByClassName("tab-content");
-            for (i = 0; i < content.length; i++) content[i].classList.remove("active");
-            tabs = document.getElementsByClassName("tab-btn");
-            for (i = 0; i < tabs.length; i++) tabs[i].classList.remove("active");
-            document.getElementById(tabName).classList.add("active");
-            evt.currentTarget.classList.add("active");
-        }
-
-        // SECURE ACTIONS
-        function secureAction(type) {
-            const check = prompt("Confirm Admin Password to continue:");
-            if(check === ADMIN_PASS) {
-                if(type === 'EXCEL') {
-                    const wb = XLSX.utils.table_to_book(document.getElementById("hTable"));
-                    XLSX.writeFile(wb, "Warehouse_Report_2026.xlsx");
-                } else if(type === 'RESET') {
-                    client.publish('warehouse/command', JSON.stringify({action: "RESET_HISTORY"}));
-                }
-            } else {
-                alert("Unauthorized!");
-            }
-        }
-
-        // MQTT & GRID LOGIC (REUSED & FIXED)
         function initGrid() {
-            const g = document.getElementById('grid');
+            const g = document.getElementById('grid'); g.innerHTML = "";
             for(let i=1; i<=30; i++) g.innerHTML += `<div class="slot" id="s-${i}"><b>Slot ${i}</b><br><span id="u-${i}">Available</span></div>`;
         }
 
@@ -147,41 +97,62 @@
             client = mqtt.connect(CFG.url, CFG.opt);
             client.on('connect', () => {
                 client.subscribe(['warehouse/status', 'warehouse/history', 'warehouse/history_init']);
+                // Đồng bộ ngay khi login
+                client.publish('warehouse/command', JSON.stringify({action: "GET_STATUS"}));
                 client.publish('warehouse/command', JSON.stringify({action: "GET_HISTORY"}));
             });
             client.on('message', (t, m) => {
-                const s = m.toString();
-                const d = JSON.parse(s);
+                const s = m.toString(), d = JSON.parse(s);
                 if(t === 'warehouse/status') updateUI(d);
                 if(t === 'warehouse/history' && s !== lastMsg) { addRow(d, false); lastMsg = s; }
                 if(t === 'warehouse/history_init') { document.querySelector("#hTable tbody").innerHTML = ""; d.forEach(l => addRow(l, true)); }
             });
         }
 
-        function send(act) {
+        function sendCmd(act) {
             const sid = document.getElementById('sID').value;
             const uid = document.getElementById('uID').value;
             if(!sid) return alert("Enter Slot ID!");
+            targetedSlot = sid; // Lưu lại để nhấp nháy
             client.publish('warehouse/command', JSON.stringify({action: act, slot_id: parseInt(sid), uid: uid || "N/A"}));
-            sidInput.value = "";
-            uidInput.value = "";
+            // Xóa trống ô nhập
+            document.getElementById('sID').value = ""; document.getElementById('uID').value = "";
         }
 
         function updateUI(data) {
             for(let i=1; i<=30; i++) {
                 const s = data[`slot_${i}`], div = document.getElementById(`s-${i}`), span = document.getElementById(`u-${i}`);
-                if(s.status === "Occupied") { div.classList.add('occupied'); span.innerText = s.uid; }
+                if(s && s.status === "Occupied") { div.classList.add('occupied'); span.innerText = s.uid; }
                 else { div.classList.remove('occupied'); span.innerText = "Available"; }
+                
+                // Hiệu ứng nhấp nháy 3s
+                if(targetedSlot == i) {
+                    div.classList.add('blink');
+                    setTimeout(() => { div.classList.remove('blink'); targetedSlot = null; }, 3000);
+                }
             }
         }
 
-        function addRow(l, isBatch) {
+        function showTab(id) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            event.currentTarget.classList.add('active');
+        }
+
+        function addRow(l, batch) {
             const row = `<tr><td>${l.time}</td><td>Slot ${l.slot}</td><td><b>${l.act}</b></td><td>${l.uid}</td></tr>`;
-            const tb = document.querySelector("#hTable tbody");
-            if(isBatch) tb.insertAdjacentHTML('beforeend', row);
-            else tb.insertAdjacentHTML('afterbegin', row);
+            document.querySelector("#hTable tbody").insertAdjacentHTML(batch ? 'beforeend' : 'afterbegin', row);
+        }
+
+        function adminAction(type) {
+            if(prompt("Admin Password:") === "hcmute2026") {
+                if(type === 'EXCEL') {
+                    const wb = XLSX.utils.table_to_book(document.getElementById("hTable"));
+                    XLSX.writeFile(wb, "Warehouse_Report.xlsx");
+                } else client.publish('warehouse/command', JSON.stringify({action: "RESET_HISTORY"}));
+            } else alert("Denied!");
         }
     </script>
 </body>
 </html>
-
