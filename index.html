@@ -3,148 +3,162 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AS/RS Pro | HCMUTE Thesis</title>
+    <title>AS/RS Pro Max | HCMUTE 2026</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    
     <style>
-        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); }
-        .slot-glow { animation: glow 1.5s infinite alternate; }
-        @keyframes glow { from { box-shadow: 0 0 5px #3b82f6; } to { box-shadow: 0 0 20px #3b82f6; } }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+        /* Hiệu ứng nháy sáng nhẹ khi chọn ô */
+        .slot-active { border: 3px solid #3b82f6 !important; box-shadow: 0 0 15px #3b82f6; transform: scale(1.02); }
+        .occupied-glow { box-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
     </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
+<body class="bg-[#0f172a] text-slate-100 min-h-screen">
 
-    <div id="login-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950">
-        <div class="glass p-8 rounded-2xl border border-slate-700 w-96 shadow-2xl">
-            <div class="text-center mb-6">
-                <i class="fas fa-shield-halved text-4xl text-blue-500 mb-2"></i>
-                <h2 class="text-2xl font-bold">AS/RS SECURE LOGIN</h2>
-            </div>
-            <input type="text" id="user" placeholder="Username" class="w-full bg-slate-800 p-3 rounded-lg mb-4 outline-none border border-slate-600 focus:border-blue-500">
-            <input type="password" id="pass" placeholder="Password" class="w-full bg-slate-800 p-3 rounded-lg mb-6 outline-none border border-slate-600 focus:border-blue-500">
-            <button onclick="handleLogin()" class="w-full bg-blue-600 hover:bg-blue-700 p-3 rounded-lg font-bold transition">AUTHENTICATE</button>
+    <div id="login-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-[#020617]">
+        <div class="bg-[#1e293b] p-8 rounded-2xl border border-slate-700 w-96 shadow-2xl text-center">
+            <img src="ute_logo.png" class="h-20 mx-auto mb-4">
+            <h2 class="text-xl font-bold mb-6">AS/RS SMART CONTROL</h2>
+            <input type="password" id="pass" placeholder="Enter Password" class="w-full bg-[#0f172a] p-3 rounded-lg mb-4 text-center border border-slate-600 outline-none focus:border-blue-500">
+            <button onclick="handleLogin()" class="w-full bg-blue-600 hover:bg-blue-700 p-3 rounded-lg font-bold">LOGIN SYSTEM</button>
         </div>
     </div>
 
     <div id="app-content" class="hidden">
-        <nav class="bg-slate-800 border-b border-slate-700 p-4 sticky top-0 z-40">
+        <nav class="bg-[#1e293b] border-b border-slate-700 p-4 sticky top-0 z-40 shadow-lg">
             <div class="container mx-auto flex justify-between items-center">
                 <div class="flex items-center gap-3">
-                    <img src="ute_logo.png" class="h-10"> <span class="font-bold text-lg hidden md:block">SMART WAREHOUSE AI</span>
+                    <img src="ute_logo.png" class="h-8">
+                    <span class="font-bold text-blue-400">SMART WAREHOUSE AI</span>
                 </div>
-                <div class="flex gap-4">
-                    <button onclick="switchTab('tab-dash')" class="nav-link text-blue-400 font-bold"><i class="fas fa-chart-line mr-1"></i> DASHBOARD</button>
-                    <button onclick="switchTab('tab-map')" class="nav-link hover:text-blue-400"><i class="fas fa-th mr-1"></i> MAP</button>
-                    <button onclick="switchTab('tab-logs')" class="nav-link hover:text-blue-400"><i class="fas fa-history mr-1"></i> LOGS</button>
-                    <button onclick="logout()" class="text-red-400 ml-4"><i class="fas fa-sign-out-alt"></i></button>
+                <div class="flex gap-2 md:gap-6 text-sm font-medium">
+                    <button onclick="switchTab('tab-dash')" class="nav-btn text-blue-400"><i class="fas fa-chart-pie mr-1"></i> DASHBOARD</button>
+                    <button onclick="switchTab('tab-map')" class="nav-btn"><i class="fas fa-th-large mr-1"></i> MAP</button>
+                    <button onclick="switchTab('tab-logs')" class="nav-btn"><i class="fas fa-list-alt mr-1"></i> LOGS</button>
+                    <button onclick="switchTab('tab-settings')" class="nav-btn"><i class="fas fa-cog mr-1"></i> SETTINGS</button>
                 </div>
             </div>
         </nav>
 
-        <div class="container mx-auto p-4 md:p-6">
-            <div id="tab-dash" class="tab-content active space-y-6">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
-                        <h4 class="text-slate-400 text-sm uppercase">Utilization</h4>
-                        <canvas id="utilChart" class="mt-4"></canvas>
+        <div class="container mx-auto p-4 md:p-8">
+            <div id="tab-dash" class="tab-content active grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="bg-[#1e293b] p-6 rounded-2xl border border-slate-700 shadow-inner">
+                    <h3 class="text-slate-400 text-sm font-bold uppercase mb-4">Storage Utilization (%)</h3>
+                    <div class="h-64 flex justify-center">
+                        <canvas id="utilChart"></canvas>
                     </div>
-                    <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 flex flex-col justify-center items-center">
-                        <h4 class="text-slate-400 text-sm uppercase mb-4">Live Throughput</h4>
-                        <div class="text-5xl font-bold text-green-500" id="throughput">0</div>
-                        <p class="text-slate-500 mt-2">items / session</p>
+                </div>
+                <div class="grid grid-cols-1 gap-6">
+                    <div class="bg-[#1e293b] p-6 rounded-2xl border border-slate-700 flex justify-between items-center">
+                        <div>
+                            <h4 class="text-slate-400 text-xs uppercase mb-1">Items Processed</h4>
+                            <p class="text-5xl font-black text-emerald-500" id="totalOps">0</p>
+                        </div>
+                        <i class="fas fa-exchange-alt text-4xl text-slate-600"></i>
                     </div>
-                    <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
-                        <h4 class="text-slate-400 text-sm uppercase mb-4">System Status</h4>
-                        <div class="space-y-3">
-                            <div class="flex justify-between"><span>MQTT Cloud</span> <span class="text-green-500">● Connected</span></div>
-                            <div class="flex justify-between"><span>Raspberry Pi</span> <span class="text-green-500">● Active</span></div>
-                            <div class="flex justify-between"><span>Security</span> <span class="text-blue-500">● JWT Encrypted</span></div>
+                    <div class="bg-[#1e293b] p-6 rounded-2xl border border-slate-700">
+                        <h4 class="text-slate-400 text-xs uppercase mb-3">Connection Status</h4>
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-center">
+                                <span>MQTT HiveMQ</span>
+                                <span class="bg-emerald-500/20 text-emerald-500 px-3 py-1 rounded-full text-xs">● Connected</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span>Raspberry Pi SSD</span>
+                                <span class="bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-xs">● Active</span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div id="tab-map" class="tab-content space-y-6">
-                <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 flex flex-wrap gap-4 justify-center">
-                    <div class="flex flex-col">
-                        <label class="text-xs text-slate-500 mb-1">Selected Slot</label>
-                        <input type="number" id="sID" readonly class="bg-slate-900 border border-slate-600 p-2 rounded w-24 text-blue-400 font-bold text-center">
+            <div id="tab-map" class="tab-content space-y-8">
+                <div class="bg-[#1e293b] p-6 rounded-2xl border border-slate-700 flex flex-wrap gap-6 justify-center shadow-xl">
+                    <div class="text-center">
+                        <label class="block text-xs text-slate-500 mb-1">Target Slot</label>
+                        <input type="text" id="sID" readonly class="bg-[#0f172a] text-blue-400 text-2xl font-bold w-24 p-2 rounded-lg text-center border border-slate-600">
                     </div>
-                    <div class="flex flex-col">
-                        <label class="text-xs text-slate-500 mb-1">Product Data / RFID</label>
-                        <input type="text" id="uID" placeholder="Scan Tag..." class="bg-slate-900 border border-slate-600 p-2 rounded w-48 outline-none focus:border-blue-500">
+                    <div class="flex-1 min-w-[200px]">
+                        <label class="block text-xs text-slate-500 mb-1">RFID / Product ID</label>
+                        <input type="text" id="uID" placeholder="Scan Tag..." class="bg-[#0f172a] w-full p-3 rounded-lg border border-slate-600 outline-none focus:border-blue-500">
                     </div>
-                    <div class="flex items-end gap-2">
-                        <button onclick="sendCmd('IMPORT')" class="bg-emerald-600 hover:bg-emerald-700 px-6 py-2 rounded-lg font-bold transition">IMPORT</button>
-                        <button onclick="sendCmd('EXPORT')" class="bg-slate-700 hover:bg-slate-600 border border-emerald-600 px-6 py-2 rounded-lg font-bold transition">EXPORT</button>
+                    <div class="flex items-end gap-3">
+                        <button onclick="sendCmd('IMPORT')" class="bg-emerald-600 hover:bg-emerald-700 px-8 py-3 rounded-xl font-bold transition-all hover:scale-105">IMPORT</button>
+                        <button onclick="sendCmd('EXPORT')" class="bg-slate-700 hover:bg-slate-600 border border-slate-500 px-8 py-3 rounded-xl font-bold transition-all">EXPORT</button>
                     </div>
                 </div>
-                <div id="grid" class="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-10 gap-3"></div>
+                <div id="grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4"></div>
             </div>
 
-            <div id="tab-logs" class="tab-content bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-                <div class="p-4 bg-slate-700/50 flex justify-between items-center">
-                    <div class="relative w-full max-w-md">
-                        <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
-                        <input type="text" id="logSearch" onkeyup="filterLogs()" placeholder="Search by UID, Action or Slot..." class="w-full bg-slate-900 p-2 pl-10 rounded-lg outline-none">
+            <div id="tab-logs" class="tab-content bg-[#1e293b] rounded-2xl border border-slate-700 overflow-hidden shadow-2xl">
+                <div class="p-6 bg-[#334155]/30 flex justify-between items-center gap-4">
+                    <div class="relative flex-1">
+                        <i class="fas fa-search absolute left-4 top-4 text-slate-500"></i>
+                        <input type="text" id="logSearch" onkeyup="filterLogs()" placeholder="Search logs (Slot, UID, Action)..." class="w-full bg-[#0f172a] p-3 pl-12 rounded-xl outline-none border border-slate-600">
                     </div>
-                    <div class="flex gap-2">
-                        <button onclick="exportExcel()" class="bg-green-600 p-2 rounded text-sm"><i class="fas fa-file-excel"></i></button>
-                        <button onclick="resetSSD()" class="bg-red-600 p-2 rounded text-sm"><i class="fas fa-trash-alt"></i></button>
-                    </div>
+                    <button onclick="exportExcel()" class="bg-emerald-600 p-3 rounded-xl hover:bg-emerald-700"><i class="fas fa-file-excel"></i></button>
+                    <button onclick="resetSSD()" class="bg-red-600 p-3 rounded-xl hover:bg-red-700"><i class="fas fa-trash-alt"></i></button>
                 </div>
-                <div class="overflow-x-auto max-h-[500px]">
+                <div class="overflow-x-auto max-h-[60vh]">
                     <table class="w-full text-left" id="logTable">
-                        <thead class="bg-slate-900 text-slate-400 sticky top-0">
-                            <tr><th class="p-4">Time</th><th class="p-4">Slot</th><th class="p-4">Action</th><th class="p-4">Product UID</th></tr>
+                        <thead class="bg-[#0f172a] text-slate-400 sticky top-0">
+                            <tr><th class="p-4">Timestamp</th><th class="p-4">Location</th><th class="p-4">Action</th><th class="p-4">Product UID</th></tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-700"></tbody>
+                        <tbody class="divide-y divide-slate-800"></tbody>
                     </table>
                 </div>
             </div>
+
+            <div id="tab-settings" class="tab-content bg-[#1e293b] p-8 rounded-2xl border border-slate-700 max-w-2xl mx-auto">
+                <h3 class="text-xl font-bold mb-6 border-b border-slate-700 pb-4"><i class="fas fa-sliders-h mr-2"></i> System Configuration</h3>
+                <div class="space-y-6">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="font-bold">Admin Password</p>
+                            <p class="text-sm text-slate-500">Change your system access key</p>
+                        </div>
+                        <button class="text-blue-400 font-bold">Update</button>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="font-bold">MQTT End-point</p>
+                            <p class="text-xs font-mono text-slate-500 truncate w-48">hivemq.cloud:8884</p>
+                        </div>
+                        <span class="text-emerald-500"><i class="fas fa-check-circle"></i> Valid</span>
+                    </div>
+                    <div class="pt-4">
+                        <button onclick="logout()" class="w-full bg-slate-700 p-3 rounded-xl text-red-400 font-bold border border-red-900/30">LOGOUT SESSION</button>
+                    </div>
+                </div>
+            </div>
         </div>
-        
-        <footer class="text-center p-8 text-slate-500 text-sm">
-            <p>Hệ thống AS/RS tích hợp IIoT & RFID - Đồ án Tốt nghiệp Huy (HCMUTE-2026)</p>
-            <p class="mt-1">Link truy cập: <span class="text-blue-500">bit.ly/asrs-cloud</span></p>
-        </footer>
     </div>
 
     <script>
         const CFG = { url: 'wss://5031841c1f8d4218bafa640220641d55.s1.eu.hivemq.cloud:8884/mqtt', opt: { username: 'lhuy04', password: 'Hcmute2026', protocol: 'wss', port: 8884 } };
-        let client, lastMsg = "", interactingSlot = null, throughputCount = 0;
-        let chartInstance = null;
+        let client, lastMsg = "", interactingSlot = null, chartObj = null;
 
-        // AUTH SYSTEM
         function handleLogin() {
-            const u = document.getElementById('user').value;
-            const p = document.getElementById('pass').value;
-            if(u === "admin" && p === "hcmute2026") {
+            if(document.getElementById('pass').value === "hcmute2026") {
                 document.getElementById('login-screen').classList.add('hidden');
                 document.getElementById('app-content').classList.remove('hidden');
                 initGrid(); connect();
-                Swal.fire({ icon: 'success', title: 'Welcome Admin!', timer: 1500, showConfirmButton: false, background: '#1e293b', color: '#fff' });
-            } else {
-                Swal.fire({ icon: 'error', title: 'Access Denied', text: 'Wrong credentials', background: '#1e293b', color: '#fff' });
-            }
+                Swal.fire({ icon: 'success', title: 'Huy Logged In', timer: 1000, showConfirmButton: false, background: '#1e293b', color: '#fff' });
+            } else Swal.fire({ icon: 'error', title: 'Access Denied', background: '#1e293b', color: '#fff' });
         }
 
-        // NAVIGATION
         function switchTab(id) {
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('text-blue-400', 'font-bold'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('text-blue-400'));
             document.getElementById(id).classList.add('active');
-            event.currentTarget.classList.add('text-blue-400', 'font-bold');
+            event.currentTarget.classList.add('text-blue-400');
         }
 
-        // MQTT LOGIC
         function connect() {
             client = mqtt.connect(CFG.url, CFG.opt);
             client.on('connect', () => {
@@ -155,80 +169,113 @@
             client.on('message', (t, m) => {
                 const s = m.toString(), d = JSON.parse(s);
                 if(t === 'warehouse/status') updateUI(d);
-                if(t === 'warehouse/history' && s !== lastMsg) { addRow(d, false); lastMsg = s; throughputCount++; updateDash(); }
+                if(t === 'warehouse/history' && s !== lastMsg) { addRow(d, false); lastMsg = s; }
                 if(t === 'warehouse/history_init') { 
                     document.querySelector("#logTable tbody").innerHTML = ""; 
                     d.forEach(l => addRow(l, true)); 
-                    throughputCount = d.length; updateDash();
+                    document.getElementById('totalOps').innerText = d.length;
                 }
             });
         }
 
-        // UI RENDER
         function initGrid() {
             const g = document.getElementById('grid'); g.innerHTML = "";
             for(let i=1; i<=30; i++) {
-                g.innerHTML += `<div class="bg-emerald-600/20 border border-emerald-600 p-4 rounded-xl text-center cursor-pointer transition hover:scale-105" id="s-${i}" onclick="selectSlot(${i})">
-                    <span class="block text-xs opacity-50">#${i}</span>
-                    <i class="fas fa-box-open text-2xl my-2" id="icon-${i}"></i>
-                    <p class="text-[10px] font-mono truncate" id="u-${i}">EMPTY</p>
+                g.innerHTML += `<div class="bg-slate-800/40 border border-slate-700 p-6 rounded-2xl text-center cursor-pointer transition hover:bg-slate-800" id="s-${i}" onclick="selectSlot(${i})">
+                    <p class="text-[10px] text-slate-500 font-bold mb-2">SLOT ${i}</p>
+                    <i class="fas fa-cube text-3xl opacity-20" id="icon-${i}"></i>
+                    <p class="mt-2 text-[10px] font-mono truncate" id="u-${i}">EMPTY</p>
                 </div>`;
             }
         }
 
         function selectSlot(id) {
-            document.querySelectorAll('[id^="s-"]').forEach(el => el.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2', 'ring-offset-slate-900'));
-            document.getElementById(`s-${id}`).classList.add('ring-2', 'ring-blue-500', 'ring-offset-2', 'ring-offset-slate-900');
-            document.getElementById('sID').value = id;
+            document.querySelectorAll('[id^="s-"]').forEach(el => el.classList.remove('slot-active'));
+            document.getElementById(`s-${id}`).classList.add('slot-active');
+            document.getElementById('sID').value = `Slot ${id}`;
+            document.getElementById('sID').dataset.val = id;
         }
 
         function updateUI(data) {
-            let occupied = 0;
+            let occ = 0;
             for(let i=1; i<=30; i++) {
                 const s = data[`slot_${i}`], div = document.getElementById(`s-${i}`), span = document.getElementById(`u-${i}`), icon = document.getElementById(`icon-${i}`);
-                if(s && s.status === "Occupied") { 
-                    occupied++;
-                    div.classList.replace('border-emerald-600', 'border-red-500');
-                    div.classList.replace('bg-emerald-600/20', 'bg-red-500/20');
-                    span.innerText = s.uid;
-                    icon.className = "fas fa-box text-2xl my-2 text-red-500";
+                if(s && s.status === "Occupied") {
+                    occ++;
+                    div.classList.add('border-red-500/50', 'bg-red-500/5', 'occupied-glow');
+                    span.innerText = s.uid; span.classList.add('text-red-400');
+                    icon.className = "fas fa-box text-3xl text-red-500 opacity-100";
                 } else {
-                    div.classList.replace('border-red-500', 'border-emerald-600');
-                    div.classList.replace('bg-red-500/20', 'bg-emerald-600/20');
-                    span.innerText = "EMPTY";
-                    icon.className = "fas fa-box-open text-2xl my-2 text-emerald-500 opacity-30";
-                }
-                if(interactingSlot == i) {
-                    div.classList.add('slot-glow');
-                    setTimeout(() => { div.classList.remove('slot-glow'); interactingSlot = null; }, 3000);
+                    div.classList.remove('border-red-500/50', 'bg-red-500/5', 'occupied-glow');
+                    span.innerText = "EMPTY"; span.classList.remove('text-red-400');
+                    icon.className = "fas fa-cube text-3xl opacity-20";
                 }
             }
-            updateChart(occupied, 30 - occupied);
+            renderChart(occ, 30 - occ);
         }
 
-        function updateDash() { document.getElementById('throughput').innerText = throughputCount; }
-
-        function updateChart(occ, emp) {
+        function renderChart(occ, emp) {
             const ctx = document.getElementById('utilChart').getContext('2d');
-            if(chartInstance) chartInstance.destroy();
-            chartInstance = new Chart(ctx, {
+            if(chartObj) chartObj.destroy();
+            chartObj = new Chart(ctx, {
                 type: 'doughnut',
-                data: { labels: ['Occupied', 'Empty'], datasets: [{ data: [occ, emp], backgroundColor: ['#ef4444', '#1e293b'], borderWidth: 0 }] },
-                options: { cutout: '80%', plugins: { legend: { display: false } } }
+                data: {
+                    labels: ['Occupied', 'Empty'],
+                    datasets: [{
+                        data: [occ, emp],
+                        backgroundColor: ['#ef4444', '#334155'],
+                        borderWidth: 0,
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    cutout: '75%',
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 10, weight: 'bold' } } },
+                        tooltip: { enabled: true }
+                    }
+                }
+            });
+        }
+
+        function sendCmd(act) {
+            const sid = document.getElementById('sID').dataset.val;
+            if(!sid) return Swal.fire({ icon: 'warning', title: 'Select a slot first!', background: '#1e293b', color: '#fff' });
+            client.publish('warehouse/command', JSON.stringify({action: act, slot_id: parseInt(sid), uid: document.getElementById('uID').value || "N/A"}));
+            document.getElementById('sID').value = ""; document.getElementById('uID').dataset.val = "";
+            document.getElementById('uID').value = "";
+            document.querySelectorAll('[id^="s-"]').forEach(el => el.classList.remove('slot-active'));
+        }
+
+        function resetSSD() {
+            Swal.fire({
+                title: 'Clear SSD Logs?',
+                text: "Confirm admin password to wipe Raspberry Pi history.",
+                input: 'password',
+                background: '#1e293b', color: '#fff',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444'
+            }).then((res) => {
+                if(res.value === "hcmute2026") {
+                    // Sửa lệnh xóa chính xác để Pi hiểu
+                    client.publish('warehouse/command', JSON.stringify({action: "RESET_HISTORY"}));
+                    Swal.fire({ icon: 'success', title: 'Wiped!', background: '#1e293b', color: '#fff' });
+                }
             });
         }
 
         function addRow(l, batch) {
-            const row = `<tr class="hover:bg-slate-700/50 transition">
-                <td class="p-4 text-xs opacity-50">${l.time}</td>
+            const row = `<tr class="hover:bg-slate-800/50 transition border-b border-slate-800">
+                <td class="p-4 text-xs opacity-40">${l.time}</td>
                 <td class="p-4 font-bold">Slot ${l.slot}</td>
-                <td class="p-4"><span class="px-2 py-1 rounded text-[10px] ${l.act === 'IMPORT' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-blue-500/20 text-blue-400'}">${l.act}</span></td>
-                <td class="p-4 font-mono text-sm">${l.uid}</td>
+                <td class="p-4"><span class="px-2 py-1 rounded-full text-[9px] font-bold ${l.act === 'IMPORT' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'}">${l.act}</span></td>
+                <td class="p-4 font-mono text-xs">${l.uid}</td>
             </tr>`;
-            document.querySelector("#logTable tbody").insertAdjacentHTML(batch ? 'beforeend' : 'afterbegin', row);
+            const tb = document.querySelector("#logTable tbody");
+            if(batch) tb.insertAdjacentHTML('beforeend', row);
+            else tb.insertAdjacentHTML('afterbegin', row);
         }
 
-        // SEARCH & FILTER
         function filterLogs() {
             const q = document.getElementById('logSearch').value.toLowerCase();
             document.querySelectorAll("#logTable tbody tr").forEach(tr => {
@@ -236,18 +283,9 @@
             });
         }
 
-        function sendCmd(act) {
-            const sid = document.getElementById('sID').value;
-            if(!sid) return Swal.fire({ icon: 'warning', title: 'Missing Info', text: 'Select a slot first!', background: '#1e293b', color: '#fff' });
-            interactingSlot = sid;
-            client.publish('warehouse/command', JSON.stringify({action: act, slot_id: parseInt(sid), uid: document.getElementById('uID').value || "N/A"}));
-            document.getElementById('sID').value = ""; document.getElementById('uID').value = "";
-            document.querySelectorAll('.slot').forEach(s => s.classList.remove('ring-2'));
-        }
-
         function exportExcel() {
             const wb = XLSX.utils.table_to_book(document.getElementById("logTable"));
-            XLSX.writeFile(wb, "ASRS_Operations_Report.xlsx");
+            XLSX.writeFile(wb, "ASRS_Operations_Log.xlsx");
         }
     </script>
 </body>
