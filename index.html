@@ -2,199 +2,206 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>AS/RS Industrial Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <title>Smart AS/RS | bit.ly/asrs-cloud</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
     <style>
-        .busy-lock { pointer-events: none; opacity: 0.5; filter: grayscale(1); }
-        .slot { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: white; text-align: center; margin: 0; padding: 20px; }
+        
+        /* 1. Hiệu ứng nháy sáng nhẹ (Glow) */
+        .blink-glow { 
+            animation: glow-pulse 1s infinite alternate; 
+            border: 2px solid #f1c40f !important;
+            box-shadow: 0 0 15px #f1c40f;
+        }
+        @keyframes glow-pulse {
+            from { opacity: 1; }
+            to { opacity: 0.5; }
+        }
+
+        /* 2. Hiệu ứng khi chọn ô */
+        .selected { 
+            border: 3px solid #f1c40f !important; 
+            transform: scale(1.05);
+            z-index: 10;
+        }
+
+        #login-overlay { position: fixed; inset: 0; background: #1a1a2e; z-index: 100; display: flex; justify-content: center; align-items: center; }
+        .login-box { background: #16213e; padding: 30px; border-radius: 10px; border: 1px solid #e94560; }
+        .login-box input { display: block; width: 250px; padding: 12px; margin: 10px 0; border-radius: 5px; border: none; outline: none; }
+
+        #main-content { display: none; max-width: 1000px; margin: 0 auto; }
+        .tabs { display: flex; justify-content: center; margin-bottom: 20px; border-bottom: 2px solid #0f3460; }
+        .tab-btn { padding: 12px 25px; background: #16213e; border: none; color: #888; cursor: pointer; border-radius: 8px 8px 0 0; margin: 0 2px; font-weight: bold; }
+        .tab-btn.active { background: #e94560; color: white; }
+        .tab-content { display: none; background: #16213e; padding: 20px; border-radius: 0 0 10px 10px; border: 1px solid #0f3460; border-top: none; }
+        .tab-content.active { display: block; }
+
+        .grid-container { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+        .slot { 
+            background: #27ae60; padding: 15px; border-radius: 5px; border: 1px solid #0f3460; 
+            transition: 0.3s; height: 60px; display: flex; flex-direction: column; 
+            justify-content: center; cursor: pointer; /* Thêm con trỏ tay */
+        }
+        .slot:hover { background: #2ecc71; }
+        .slot.occupied { background: #e74c3c; }
+        .slot.occupied:hover { background: #ff5e4d; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #0f3460; padding: 10px; }
+        footer { margin-top: 30px; font-size: 13px; color: #555; border-top: 1px solid #0f3460; padding-top: 15px; }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-100 font-sans">
+<body>
+    <h1>🚀 IOT-BASED AS/RS SYSTEM</h1>
 
-    <div id="auth-wall" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950">
-        <div class="bg-slate-900 p-8 rounded-2xl border border-slate-800 shadow-2xl w-96">
-            <h2 class="text-xl font-bold mb-6 text-center text-blue-500">SYSTEM AUTHENTICATION</h2>
-            <input type="password" id="p-check" class="w-full bg-slate-800 p-3 rounded-lg mb-4 border border-slate-700 outline-none focus:ring-2 ring-blue-500" placeholder="Admin Key">
-            <button onclick="validateAuth()" class="w-full bg-blue-600 hover:bg-blue-700 p-3 rounded-lg font-bold transition">UNBLOCK DASHBOARD</button>
+    <div id="login-overlay">
+        <div class="login-box">
+            <h3>🔐 System Login</h3>
+            <input type="text" id="user" placeholder="Username">
+            <input type="password" id="pass" placeholder="Password">
+            <button onclick="doLogin()" style="width:100%; padding:12px; background:#e94560; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold">ACCESS DASHBOARD</button>
         </div>
     </div>
 
-    <div id="main-app" class="hidden opacity-0 transition-opacity duration-500">
-        <nav class="bg-slate-900 border-b border-slate-800 p-4 sticky top-0 z-40 flex justify-between items-center">
-            <div class="flex items-center gap-4">
-                <img src="ute_logo.png" class="h-8">
-                <div id="conn-stat" class="text-xs font-bold text-yellow-500">● CONNECTING...</div>
+    <div id="main-content">
+        <div class="tabs">
+            <button class="tab-btn active" onclick="showTab('tab-map')">WAREHOUSE MAP</button>
+            <button class="tab-btn" onclick="showTab('tab-logs')">OPERATION LOGS</button>
+            <button class="tab-btn" onclick="showTab('tab-tools')">SYSTEM TOOLS</button>
+        </div>
+
+        <div id="tab-map" class="tab-content active">
+            <p style="color: #888; font-size: 14px; margin-bottom: 15px;">💡 Click on a slot to select, then choose action.</p>
+            <div style="margin-bottom:20px; display:flex; gap:10px; justify-content:center">
+                <input type="number" id="sID" placeholder="Slot" readonly style="width:80px; padding:10px; border-radius:5px; border:none; background: #0f3460; color: #f1c40f; font-weight: bold; text-align: center;">
+                <input type="text" id="uID" placeholder="RFID UID" style="padding:10px; border-radius:5px; border:none">
+                <button onclick="sendCmd('IMPORT')" style="background:#e94560; color:white; padding:10px 20px; border:none; border-radius:5px; font-weight:bold">IMPORT</button>
+                <button onclick="sendCmd('EXPORT')" style="background:#0f3460; color:white; padding:10px 20px; border:1px solid #e94560; border-radius:5px; font-weight:bold">EXPORT</button>
             </div>
-            <div class="flex gap-4" id="nav-tabs">
-                <button onclick="tab('dash')" class="t-btn text-blue-400 font-bold">DASHBOARD</button>
-                <button onclick="tab('map')" class="t-btn hover:text-blue-400">MAP</button>
-                <button onclick="tab('logs')" class="t-btn hover:text-blue-400">LOGS</button>
-            </div>
-        </nav>
+            <div class="grid-container" id="grid"></div>
+        </div>
 
-        <main class="container mx-auto p-4 lg:p-8">
-            <section id="dash" class="tab-sec block grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800">
-                    <canvas id="utilChart" height="200"></canvas>
-                </div>
-                <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 flex flex-col justify-center items-center">
-                    <div id="robot-status-ui" class="text-4xl font-black text-slate-700">IDLE</div>
-                    <p class="text-xs text-slate-500 mt-2 uppercase">Robot Working State</p>
-                </div>
-            </section>
+        <div id="tab-logs" class="tab-content">
+            <table id="hTable">
+                <thead><tr><th>Time</th><th>Location</th><th>Action</th><th>UID</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
 
-            <section id="map" class="tab-sec hidden space-y-6">
-                <div id="control-bar" class="bg-slate-900 p-6 rounded-2xl border border-slate-800 flex flex-wrap gap-4 justify-center">
-                    <input type="number" id="sID" readonly class="w-24 bg-slate-950 p-3 rounded-lg border border-slate-700 text-blue-400 font-bold text-center" placeholder="Slot">
-                    <input type="text" id="uID" class="bg-slate-950 p-3 rounded-lg border border-slate-700 flex-1 outline-none" placeholder="Product UID (Max 50 chars)">
-                    <button onclick="cmd('IMPORT')" id="btn-imp" class="bg-emerald-600 px-8 py-3 rounded-lg font-bold hover:bg-emerald-700 transition">IMPORT</button>
-                    <button onclick="cmd('EXPORT')" id="btn-exp" class="bg-slate-800 border border-emerald-600 px-8 py-3 rounded-lg font-bold hover:bg-slate-700 transition">EXPORT</button>
-                </div>
-                <div id="grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4"></div>
-            </section>
+        <div id="tab-tools" class="tab-content">
+            <button onclick="adminAction('EXCEL')" style="background:#27ae60; color:white; padding:15px; border:none; border-radius:5px; margin:10px; font-weight:bold">📊 EXPORT REPORT</button>
+            <button onclick="adminAction('RESET')" style="background:#e74c3c; color:white; padding:15px; border:none; border-radius:5px; margin:10px; font-weight:bold">🗑️ CLEAR SSD</button>
+        </div>
 
-            <section id="logs" class="tab-sec hidden bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden">
-                <div class="p-4 border-b border-slate-800 flex gap-4">
-                    <input type="text" id="logSearch" class="flex-1 bg-slate-950 p-2 rounded-lg outline-none text-sm" placeholder="Search by UID/Action...">
-                </div>
-                <div class="overflow-x-auto max-h-[500px]">
-                    <table class="w-full text-left" id="logTable">
-                        <thead class="bg-slate-950 sticky top-0">
-                            <tr class="text-slate-500 text-xs uppercase">
-                                <th class="p-4">Time</th><th class="p-4">Slot</th><th class="p-4">Action</th><th class="p-4">UID</th>
-                            </tr>
-                        </thead>
-                        <tbody id="logBody" class="divide-y divide-slate-800 text-sm"></tbody>
-                    </table>
-                </div>
-            </section>
-        </main>
+        <footer>
+            <p>Access Point: <b style="color: #e94560;">bit.ly/asrs-cloud</b></p>
+            <p>© 2026 HCMUTE Graduation Project - Student: Huy</p>
+        </footer>
     </div>
 
     <script>
-        // 1. SECURITY & CONFIG (Lỗi I.1, I.2 - Khuyến nghị dùng Backend thực thụ để ẩn thông tin này)
-        const MQTT_CFG = { host: 'wss://5031841c1f8d4218bafa640220641d55.s1.eu.hivemq.cloud:8884/mqtt', user: 'lhuy04', pass: 'Hcmute2026' };
-        let mqtt, chart, isBusy = false, logs = [];
+        const CFG = { url: 'wss://5031841c1f8d4218bafa640220641d55.s1.eu.hivemq.cloud:8884/mqtt', opt: { username: 'lhuy04', password: 'Hcmute2026', protocol: 'wss', port: 8884 } };
+        let client, lastMsg = "", interactingSlot = null;
 
-        // 2. AUTHENTICATION (Lỗi I.5)
-        function validateAuth() {
-            const p = document.getElementById('p-check').value;
-            if (btoa(p) === "aGNtdXRlMjAyNg==") { // Hash base64 cơ bản (Lỗi I.4)
-                document.getElementById('auth-wall').classList.add('hidden');
-                document.getElementById('main-app').classList.remove('hidden');
-                document.getElementById('main-app').style.opacity = "1";
-                initSystem();
-            } else {
-                Swal.fire('Access Denied', 'Invalid Admin Key', 'error');
-            }
+        function doLogin() {
+            if(document.getElementById('user').value === "admin" && document.getElementById('pass').value === "hcmute2026") {
+                document.getElementById('login-overlay').style.display = 'none';
+                document.getElementById('main-content').style.display = 'block';
+                initGrid(); connect();
+            } else alert("Mật khẩu không đúng!");
         }
 
-        // 3. MQTT CORE (Lỗi II.2, II.3, V.1)
-        function initSystem() {
-            initGrid();
-            initChart();
-            mqtt = mqtt.connect(MQTT_CFG.host, { username: MQTT_CFG.user, password: MQTT_CFG.pass });
-
-            mqtt.on('connect', () => {
-                updateConnStat('ONLINE', 'text-emerald-500');
-                mqtt.subscribe(['warehouse/status', 'warehouse/history', 'warehouse/robot_state', 'warehouse/ack', 'warehouse/error']);
-                mqtt.publish('warehouse/command', JSON.stringify({action: "GET_STATUS"}));
-                mqtt.publish('warehouse/command', JSON.stringify({action: "GET_HISTORY"}));
-            });
-
-            mqtt.on('message', (topic, msg) => {
-                try {
-                    const data = JSON.parse(msg.toString());
-                    handleMessage(topic, data);
-                } catch (e) { console.error("Bad Message Format"); }
-            });
-
-            mqtt.on('close', () => updateConnStat('OFFLINE', 'text-red-500'));
-        }
-
-        function handleMessage(topic, data) {
-            if (topic === 'warehouse/status') renderUI(data);
-            if (topic === 'warehouse/robot_state') setRobotBusy(data === 'BUSY');
-            if (topic === 'warehouse/history') { logs.unshift(data); renderLogs(); }
-            if (topic === 'warehouse/error') Swal.fire('Robot Error', data, 'warning');
-            if (topic === 'warehouse/ack') Swal.fire('Success', `Action ${data.action} on Slot ${data.slot} completed.`, 'success');
-        }
-
-        // 4. PERFORMANCE & UI (Lỗi IV.1, IV.2)
+        // 3. Khởi tạo Grid với tính năng click chọn
         function initGrid() {
-            const frag = document.createDocumentFragment();
-            for (let i = 1; i <= 30; i++) {
-                const div = document.createElement('div');
-                div.id = `s-${i}`;
-                div.className = "slot bg-slate-900 border border-slate-800 p-6 rounded-2xl text-center cursor-pointer hover:border-blue-500";
-                div.innerHTML = `<p class="text-[10px] text-slate-500 font-bold mb-2">SLOT ${i}</p><p id="u-${i}" class="text-xs font-mono">Available</p>`;
-                div.onclick = () => selectSlot(i);
-                frag.appendChild(div);
+            const g = document.getElementById('grid'); g.innerHTML = "";
+            for(let i=1; i<=30; i++) {
+                g.innerHTML += `<div class="slot" id="s-${i}" onclick="selectSlot(${i})">
+                    <b>Slot ${i}</b><br><span id="u-${i}">Available</span>
+                </div>`;
             }
-            document.getElementById('grid').appendChild(frag);
         }
 
-        function renderUI(db) {
-            let occ = 0;
-            for (let i = 1; i <= 30; i++) {
-                const s = db[`slot_${i}`], div = document.getElementById(`s-${i}`), u = document.getElementById(`u-${i}`);
-                if (s && s.status === "Occupied") {
-                    occ++; div.classList.add('border-red-500/50', 'bg-red-500/5');
-                    u.innerText = sanitize(s.uid); u.classList.add('text-red-500');
-                } else {
-                    div.classList.remove('border-red-500/50', 'bg-red-500/5');
-                    u.innerText = "Available"; u.classList.remove('text-red-500');
+        function selectSlot(id) {
+            // Xóa highlight cũ
+            document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
+            // Thêm highlight mới và điền số vào ô input
+            document.getElementById(`s-${id}`).classList.add('selected');
+            document.getElementById('sID').value = id;
+            console.log("Selected slot:", id);
+        }
+
+        function connect() {
+            client = mqtt.connect(CFG.url, CFG.opt);
+            client.on('connect', () => {
+                client.subscribe(['warehouse/status', 'warehouse/history', 'warehouse/history_init']);
+
+                client.publish('warehouse/command', JSON.stringify({action: "GET_STATUS"}));
+                client.publish('warehouse/command', JSON.stringify({action: "GET_HISTORY"}));
+            });
+            client.on('message', (t, m) => {
+                const s = m.toString(), d = JSON.parse(s);
+                if(t === 'warehouse/status') updateUI(d);
+                if(t === 'warehouse/history' && s !== lastMsg) { addRow(d, false); lastMsg = s; }
+                if(t === 'warehouse/history_init') { document.querySelector("#hTable tbody").innerHTML = ""; d.forEach(l => addRow(l, true)); }
+            });
+        }
+
+        function sendCmd(act) {
+            const sidInput = document.getElementById('sID');
+            const uidInput = document.getElementById('uID');
+            const sid = sidInput.value;
+            
+            if(!sid) return alert("Vui lòng chọn 1 ô trên bản đồ!");
+            
+            // Đánh dấu ô đang tương tác để nháy sáng
+            interactingSlot = sid; 
+            
+            client.publish('warehouse/command', JSON.stringify({action: act, slot_id: parseInt(sid), uid: uidInput.value || "N/A"}));
+            
+            // Tự động xóa trống ô nhập
+            sidInput.value = ""; 
+            uidInput.value = "";
+            document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
+        }
+
+        function updateUI(data) {
+            for(let i=1; i<=30; i++) {
+                const s = data[`slot_${i}`], div = document.getElementById(`s-${i}`), span = document.getElementById(`u-${i}`);
+                if(s && s.status === "Occupied") { div.classList.add('occupied'); span.innerText = s.uid; }
+                else { div.classList.remove('occupied'); span.innerText = "Available"; }
+
+                // Hiệu ứng nháy sáng 3s khi Robot đang gắp hàng
+                if(interactingSlot == i) {
+                    div.classList.add('blink-glow');
+                    setTimeout(() => { 
+                        div.classList.remove('blink-glow'); 
+                        interactingSlot = null; 
+                    }, 3000);
                 }
             }
-            updateChart(occ, 30 - occ);
         }
 
-        function updateChart(occ, emp) {
-            chart.data.datasets[0].data = [occ, emp];
-            chart.update(); // Update instead of Destroy (Lỗi IV.1)
+        function showTab(id) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            event.currentTarget.classList.add('active');
         }
 
-        // 5. IOT LOGIC (Lỗi II.12, VII.2)
-        function cmd(act) {
-            const sid = document.getElementById('sID').value;
-            const uid = document.getElementById('uID').value.trim();
-            
-            if (!sid) return Swal.fire('Wait', 'Please select a slot', 'info');
-            if (act === 'IMPORT' && !uid) return Swal.fire('Error', 'UID is required for IMPORT', 'error');
-
-            mqtt.publish('warehouse/command', JSON.stringify({
-                action: act, slot_id: parseInt(sid), uid: sanitize(uid)
-            }));
-            
-            // Lock UI (Lỗi II.12, VII.5)
-            setRobotBusy(true);
+        function addRow(l, batch) {
+            const row = `<tr><td>${l.time}</td><td>Slot ${l.slot}</td><td><b>${l.act}</b></td><td>${l.uid}</td></tr>`;
+            document.querySelector("#hTable tbody").insertAdjacentHTML(batch ? 'beforeend' : 'afterbegin', row);
         }
 
-        function setRobotBusy(busy) {
-            isBusy = busy;
-            const ui = document.getElementById('robot-status-ui');
-            ui.innerText = busy ? 'BUSY' : 'IDLE';
-            ui.className = busy ? 'text-4xl font-black text-yellow-500 animate-pulse' : 'text-4xl font-black text-slate-700';
-            document.getElementById('control-bar').className = busy ? 'bg-slate-900 p-6 rounded-2xl border border-slate-800 flex flex-wrap gap-4 justify-center busy-lock' : 'bg-slate-900 p-6 rounded-2xl border border-slate-800 flex flex-wrap gap-4 justify-center';
+        function adminAction(type) {
+            if(prompt("Admin Password:") === "hcmute2026") {
+                if(type === 'EXCEL') {
+                    const wb = XLSX.utils.table_to_book(document.getElementById("hTable"));
+                    XLSX.writeFile(wb, "Warehouse_Report.xlsx");
+                } else client.publish('warehouse/command', JSON.stringify({action: "RESET_HISTORY"}));
+            } else alert("Denied!");
         }
-
-        // HELPERS (Lỗi I.9 - XSS Protection)
-        function sanitize(str) {
-            const div = document.createElement('div');
-            div.textContent = str;
-            return div.innerHTML;
-        }
-
-        function updateConnStat(txt, clr) {
-            const el = document.getElementById('conn-stat');
-            el.innerText = `● ${txt}`;
-            el.className = `text-xs font-bold ${clr}`;
-        }
-        
-        // ... (Các hàm tab(), renderLogs() bổ sung thêm logic limit 50 dòng để tránh lag)
     </script>
 </body>
 </html>
