@@ -8,24 +8,18 @@
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: white; text-align: center; margin: 0; padding: 20px; }
         
-        /* 1. Hiệu ứng nháy sáng nhẹ (Glow) */
-        .blink-glow { 
-            animation: glow-pulse 1s infinite alternate; 
-            border: 2px solid #f1c40f !important;
-            box-shadow: 0 0 15px #f1c40f;
+        /* Hiệu ứng Robot đang xử lý (Băng tải/RFID) */
+        .processing-glow { 
+            animation: processing-pulse 1.5s infinite; 
+            border: 2px solid #3498db !important;
+            box-shadow: 0 0 20px #3498db;
         }
-        @keyframes glow-pulse {
-            from { opacity: 1; }
-            to { opacity: 0.5; }
-        }
+        @keyframes processing-pulse { from { opacity: 1; } to { opacity: 0.4; } }
 
-        /* 2. Hiệu ứng khi chọn ô */
-        .selected { 
-            border: 3px solid #f1c40f !important; 
-            transform: scale(1.05);
-            z-index: 10;
-        }
+        .blink-glow { animation: glow-pulse 1s infinite alternate; border: 2px solid #f1c40f !important; box-shadow: 0 0 15px #f1c40f; }
+        @keyframes glow-pulse { from { opacity: 1; } to { opacity: 0.5; } }
 
+        .selected { border: 3px solid #f1c40f !important; transform: scale(1.05); z-index: 10; }
         #login-overlay { position: fixed; inset: 0; background: #1a1a2e; z-index: 100; display: flex; justify-content: center; align-items: center; }
         .login-box { background: #16213e; padding: 30px; border-radius: 10px; border: 1px solid #e94560; }
         .login-box input { display: block; width: 250px; padding: 12px; margin: 10px 0; border-radius: 5px; border: none; outline: none; }
@@ -38,14 +32,11 @@
         .tab-content.active { display: block; }
 
         .grid-container { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
-        .slot { 
-            background: #27ae60; padding: 15px; border-radius: 5px; border: 1px solid #0f3460; 
-            transition: 0.3s; height: 60px; display: flex; flex-direction: column; 
-            justify-content: center; cursor: pointer; /* Thêm con trỏ tay */
-        }
+        .slot { background: #27ae60; padding: 15px; border-radius: 5px; border: 1px solid #0f3460; transition: 0.3s; height: 60px; display: flex; flex-direction: column; justify-content: center; cursor: pointer; }
         .slot:hover { background: #2ecc71; }
         .slot.occupied { background: #e74c3c; }
-        .slot.occupied:hover { background: #ff5e4d; }
+
+        #robot-status { background: #0f3460; padding: 10px; border-radius: 5px; margin-bottom: 15px; font-weight: bold; color: #3498db; display: none; }
 
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th, td { border: 1px solid #0f3460; padding: 10px; }
@@ -65,6 +56,8 @@
     </div>
 
     <div id="main-content">
+        <div id="robot-status">🤖 ROBOT: IDLE</div>
+
         <div class="tabs">
             <button class="tab-btn active" onclick="showTab('tab-map')">WAREHOUSE MAP</button>
             <button class="tab-btn" onclick="showTab('tab-logs')">OPERATION LOGS</button>
@@ -72,12 +65,12 @@
         </div>
 
         <div id="tab-map" class="tab-content active">
-            <p style="color: #888; font-size: 14px; margin-bottom: 15px;">💡 Click on a slot to select, then choose action.</p>
+            <p style="color: #888; font-size: 14px; margin-bottom: 15px;">💡 Nhấn <b>IMPORT</b>: Pi sẽ tự đợi băng tải và tìm ô gần nhất.</p>
             <div style="margin-bottom:20px; display:flex; gap:10px; justify-content:center">
                 <input type="number" id="sID" placeholder="Slot" readonly style="width:80px; padding:10px; border-radius:5px; border:none; background: #0f3460; color: #f1c40f; font-weight: bold; text-align: center;">
-                <input type="text" id="uID" placeholder="RFID UID" style="padding:10px; border-radius:5px; border:none">
-                <button onclick="sendCmd('IMPORT')" style="background:#e94560; color:white; padding:10px 20px; border:none; border-radius:5px; font-weight:bold">IMPORT</button>
-                <button onclick="sendCmd('EXPORT')" style="background:#0f3460; color:white; padding:10px 20px; border:1px solid #e94560; border-radius:5px; font-weight:bold">EXPORT</button>
+                <input type="text" id="uID" placeholder="RFID UID" readonly style="padding:10px; border-radius:5px; border:none; background: #0f3460; color: #ccc;">
+                <button onclick="smartImport()" style="background:#e94560; color:white; padding:10px 20px; border:none; border-radius:5px; font-weight:bold">IMPORT (AUTO)</button>
+                <button onclick="sendCmd('EXPORT')" style="background:#0f3460; color:white; padding:10px 20px; border:1px solid #e94560; border-radius:5px; font-weight:bold">EXPORT (SEL)</button>
             </div>
             <div class="grid-container" id="grid"></div>
         </div>
@@ -112,7 +105,6 @@
             } else alert("Mật khẩu không đúng!");
         }
 
-        // 3. Khởi tạo Grid với tính năng click chọn
         function initGrid() {
             const g = document.getElementById('grid'); g.innerHTML = "";
             for(let i=1; i<=30; i++) {
@@ -123,44 +115,55 @@
         }
 
         function selectSlot(id) {
-            // Xóa highlight cũ
             document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
-            // Thêm highlight mới và điền số vào ô input
-            document.getElementById(`s-${id}`).classList.add('selected');
+            document.getElementById(`s-${i = id}`).classList.add('selected');
             document.getElementById('sID').value = id;
-            console.log("Selected slot:", id);
         }
 
         function connect() {
             client = mqtt.connect(CFG.url, CFG.opt);
             client.on('connect', () => {
-                client.subscribe(['warehouse/status', 'warehouse/history', 'warehouse/history_init']);
+                // Subscribe thêm topic robot_state và ack để đồng bộ quy trình
+                client.subscribe(['warehouse/status', 'warehouse/history', 'warehouse/history_init', 'warehouse/robot_state', 'warehouse/ack', 'warehouse/error']);
                 client.publish('warehouse/command', JSON.stringify({action: "GET_STATUS"}));
                 client.publish('warehouse/command', JSON.stringify({action: "GET_HISTORY"}));
             });
             client.on('message', (t, m) => {
-                const s = m.toString(), d = JSON.parse(s);
+                const s = m.toString();
+                let d; try { d = JSON.parse(s); } catch(e) { d = s; }
+
                 if(t === 'warehouse/status') updateUI(d);
+                if(t === 'warehouse/robot_state') updateRobotState(d);
+                if(t === 'warehouse/ack') alert("Hệ thống: " + d);
+                if(t === 'warehouse/error') alert("LỖI: " + d);
                 if(t === 'warehouse/history' && s !== lastMsg) { addRow(d, false); lastMsg = s; }
                 if(t === 'warehouse/history_init') { document.querySelector("#hTable tbody").innerHTML = ""; d.forEach(l => addRow(l, true)); }
             });
         }
 
+        // Cập nhật trạng thái hiển thị của Robot
+        function updateRobotState(state) {
+            const el = document.getElementById('robot-status');
+            el.style.display = 'block';
+            if(state === "WAITING_CONVEYOR") el.innerText = "🤖 ROBOT: Đang đợi băng tải cấp hàng...";
+            else if(state === "WAITING_RFID") el.innerText = "🤖 ROBOT: Đang quét thẻ RFID hàng hóa...";
+            else { el.innerText = "🤖 ROBOT: Sẵn sàng"; setTimeout(() => el.style.display='none', 3000); }
+        }
+
+        // Gửi lệnh IMPORT thông minh (không cần chọn slot trước)
+        function smartImport() {
+            client.publish('warehouse/command', JSON.stringify({action: "IMPORT"}));
+            alert("Lệnh đã gửi! Vui lòng đợi băng tải và quẹt thẻ RFID tại trạm check-in.");
+        }
+
         function sendCmd(act) {
-            const sidInput = document.getElementById('sID');
-            const uidInput = document.getElementById('uID');
-            const sid = sidInput.value;
+            const sid = document.getElementById('sID').value;
+            if(!sid && act === 'EXPORT') return alert("Vui lòng chọn ô kho cần xuất hàng!");
             
-            if(!sid) return alert("Vui lòng chọn 1 ô trên bản đồ!");
+            interactingSlot = sid;
+            client.publish('warehouse/command', JSON.stringify({action: act, slot_id: parseInt(sid)}));
             
-            // Đánh dấu ô đang tương tác để nháy sáng
-            interactingSlot = sid; 
-            
-            client.publish('warehouse/command', JSON.stringify({action: act, slot_id: parseInt(sid), uid: uidInput.value || "N/A"}));
-            
-            // Tự động xóa trống ô nhập
-            sidInput.value = ""; 
-            uidInput.value = "";
+            document.getElementById('sID').value = "";
             document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
         }
 
@@ -170,13 +173,9 @@
                 if(s && s.status === "Occupied") { div.classList.add('occupied'); span.innerText = s.uid; }
                 else { div.classList.remove('occupied'); span.innerText = "Available"; }
                 
-                // Hiệu ứng nháy sáng 3s khi Robot đang gắp hàng
                 if(interactingSlot == i) {
                     div.classList.add('blink-glow');
-                    setTimeout(() => { 
-                        div.classList.remove('blink-glow'); 
-                        interactingSlot = null; 
-                    }, 3000);
+                    setTimeout(() => { div.classList.remove('blink-glow'); interactingSlot = null; }, 3000);
                 }
             }
         }
