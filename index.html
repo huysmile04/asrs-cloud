@@ -2,204 +2,123 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Smart AS/RS | bit.ly/asrs-cloud</title>
+    <title>AS/RS Pro | bit.ly/asrs-cloud</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: white; text-align: center; margin: 0; padding: 20px; }
-        
-        /* Hiệu ứng Robot đang xử lý (Băng tải/RFID) */
-        .processing-glow { 
-            animation: processing-pulse 1.5s infinite; 
-            border: 2px solid #3498db !important;
-            box-shadow: 0 0 20px #3498db;
+        body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: white; margin: 0; padding: 20px; }
+        .grid-container { display: grid; grid-template-columns: repeat(6, 1fr); gap: 15px; margin-top: 20px; }
+        .slot { 
+            background: #1e293b; padding: 20px; border-radius: 12px; border: 2px solid #334155; 
+            transition: 0.3s; cursor: pointer; text-align: center;
         }
-        @keyframes processing-pulse { from { opacity: 1; } to { opacity: 0.4; } }
-
-        .blink-glow { animation: glow-pulse 1s infinite alternate; border: 2px solid #f1c40f !important; box-shadow: 0 0 15px #f1c40f; }
-        @keyframes glow-pulse { from { opacity: 1; } to { opacity: 0.5; } }
-
-        .selected { border: 3px solid #f1c40f !important; transform: scale(1.05); z-index: 10; }
-        #login-overlay { position: fixed; inset: 0; background: #1a1a2e; z-index: 100; display: flex; justify-content: center; align-items: center; }
-        .login-box { background: #16213e; padding: 30px; border-radius: 10px; border: 1px solid #e94560; }
-        .login-box input { display: block; width: 250px; padding: 12px; margin: 10px 0; border-radius: 5px; border: none; outline: none; }
-        
-        #main-content { display: none; max-width: 1000px; margin: 0 auto; }
-        .tabs { display: flex; justify-content: center; margin-bottom: 20px; border-bottom: 2px solid #0f3460; }
-        .tab-btn { padding: 12px 25px; background: #16213e; border: none; color: #888; cursor: pointer; border-radius: 8px 8px 0 0; margin: 0 2px; font-weight: bold; }
-        .tab-btn.active { background: #e94560; color: white; }
-        .tab-content { display: none; background: #16213e; padding: 20px; border-radius: 0 0 10px 10px; border: 1px solid #0f3460; border-top: none; }
-        .tab-content.active { display: block; }
-
-        .grid-container { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
-        .slot { background: #27ae60; padding: 15px; border-radius: 5px; border: 1px solid #0f3460; transition: 0.3s; height: 60px; display: flex; flex-direction: column; justify-content: center; cursor: pointer; }
-        .slot:hover { background: #2ecc71; }
-        .slot.occupied { background: #e74c3c; }
-
-        #robot-status { background: #0f3460; padding: 10px; border-radius: 5px; margin-bottom: 15px; font-weight: bold; color: #3498db; display: none; }
-
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { border: 1px solid #0f3460; padding: 10px; }
-        footer { margin-top: 30px; font-size: 13px; color: #555; border-top: 1px solid #0f3460; padding-top: 15px; }
+        .slot.occupied { background: #ef4444; border-color: #991b1b; }
+        .slot.selected { border-color: #3b82f6; box-shadow: 0 0 15px #3b82f6; transform: scale(1.05); }
+        .item-name { font-weight: bold; font-size: 14px; margin-top: 5px; display: block; color: #f1c40f; }
+        .controls { background: #1e293b; padding: 20px; border-radius: 15px; display: flex; gap: 20px; justify-content: center; }
+        button { padding: 12px 25px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; }
+        .btn-import { background: #10b981; color: white; }
+        .btn-export { background: #3b82f6; color: white; }
+        .btn-lookup { background: #f59e0b; color: white; }
     </style>
 </head>
-<body>
-    <h1>🚀 IOT-BASED AS/RS SYSTEM</h1>
+<body onclick="handleDeselect(event)">
+    <h2 style="text-align:center; color:#3b82f6">🚀 SMART WAREHOUSE AI</h2>
 
-    <div id="login-overlay">
-        <div class="login-box">
-            <h3>🔐 System Login</h3>
-            <input type="text" id="user" placeholder="Username">
-            <input type="password" id="pass" placeholder="Password">
-            <button onclick="doLogin()" style="width:100%; padding:12px; background:#e94560; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold">ACCESS DASHBOARD</button>
-        </div>
+    <div class="controls" onclick="event.stopPropagation()">
+        <button class="btn-import" onclick="openImportForm()">IMPORT NEW ITEM</button>
+        <button class="btn-lookup" onclick="lookupItem()">LOOKUP INFO</button>
+        <button class="btn-export" onclick="confirmExport()">EXPORT ITEM</button>
     </div>
 
-    <div id="main-content">
-        <div id="robot-status">🤖 ROBOT: IDLE</div>
-
-        <div class="tabs">
-            <button class="tab-btn active" onclick="showTab('tab-map')">WAREHOUSE MAP</button>
-            <button class="tab-btn" onclick="showTab('tab-logs')">OPERATION LOGS</button>
-            <button class="tab-btn" onclick="showTab('tab-tools')">SYSTEM TOOLS</button>
-        </div>
-
-        <div id="tab-map" class="tab-content active">
-            <p style="color: #888; font-size: 14px; margin-bottom: 15px;">💡 Nhấn <b>IMPORT</b>: Pi sẽ tự đợi băng tải và tìm ô gần nhất.</p>
-            <div style="margin-bottom:20px; display:flex; gap:10px; justify-content:center">
-                <input type="number" id="sID" placeholder="Slot" readonly style="width:80px; padding:10px; border-radius:5px; border:none; background: #0f3460; color: #f1c40f; font-weight: bold; text-align: center;">
-                <input type="text" id="uID" placeholder="RFID UID" readonly style="padding:10px; border-radius:5px; border:none; background: #0f3460; color: #ccc;">
-                <button onclick="smartImport()" style="background:#e94560; color:white; padding:10px 20px; border:none; border-radius:5px; font-weight:bold">IMPORT (AUTO)</button>
-                <button onclick="sendCmd('EXPORT')" style="background:#0f3460; color:white; padding:10px 20px; border:1px solid #e94560; border-radius:5px; font-weight:bold">EXPORT (SEL)</button>
-            </div>
-            <div class="grid-container" id="grid"></div>
-        </div>
-
-        <div id="tab-logs" class="tab-content">
-            <table id="hTable">
-                <thead><tr><th>Time</th><th>Location</th><th>Action</th><th>UID</th></tr></thead>
-                <tbody></tbody>
-            </table>
-        </div>
-
-        <div id="tab-tools" class="tab-content">
-            <button onclick="adminAction('EXCEL')" style="background:#27ae60; color:white; padding:15px; border:none; border-radius:5px; margin:10px; font-weight:bold">📊 EXPORT REPORT</button>
-            <button onclick="adminAction('RESET')" style="background:#e74c3c; color:white; padding:15px; border:none; border-radius:5px; margin:10px; font-weight:bold">🗑️ CLEAR SSD</button>
-        </div>
-
-        <footer>
-            <p>Access Point: <b style="color: #e94560;">bit.ly/asrs-cloud</b></p>
-            <p>© 2026 HCMUTE Graduation Project - Student: Huy</p>
-        </footer>
-    </div>
+    <div class="grid-container" id="grid"></div>
 
     <script>
         const CFG = { url: 'wss://5031841c1f8d4218bafa640220641d55.s1.eu.hivemq.cloud:8884/mqtt', opt: { username: 'lhuy04', password: 'Hcmute2026', protocol: 'wss', port: 8884 } };
-        let client, lastMsg = "", interactingSlot = null;
+        let client, selectedSlot = null, warehouseData = {};
 
-        function doLogin() {
-            if(document.getElementById('user').value === "admin" && document.getElementById('pass').value === "hcmute2026") {
-                document.getElementById('login-overlay').style.display = 'none';
-                document.getElementById('main-content').style.display = 'block';
-                initGrid(); connect();
-            } else alert("Mật khẩu không đúng!");
-        }
-
-        function initGrid() {
+        function init() {
             const g = document.getElementById('grid'); g.innerHTML = "";
             for(let i=1; i<=30; i++) {
-                g.innerHTML += `<div class="slot" id="s-${i}" onclick="selectSlot(${i})">
-                    <b>Slot ${i}</b><br><span id="u-${i}">Available</span>
+                g.innerHTML += `<div class="slot" id="s-${i}" onclick="selectSlot(event, ${i})">
+                    <small>Slot ${i}</small>
+                    <span id="name-${i}" class="item-name">Empty</span>
                 </div>`;
             }
+            connect();
         }
 
-        function selectSlot(id) {
+        function selectSlot(e, id) {
+            e.stopPropagation();
             document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
-            document.getElementById(`s-${i = id}`).classList.add('selected');
-            document.getElementById('sID').value = id;
+            document.getElementById(`s-${id}`).classList.add('selected');
+            selectedSlot = id;
+        }
+
+        function handleDeselect(e) {
+            document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
+            selectedSlot = null;
+        }
+
+        function openImportForm() {
+            Swal.fire({
+                title: 'Import Item',
+                input: 'text',
+                inputLabel: 'Enter Item Name',
+                showCancelButton: true,
+                background: '#1e293b', color: '#fff'
+            }).then((result) => {
+                if (result.isConfirmed && result.value) {
+                    client.publish('warehouse/command', JSON.stringify({action: "IMPORT", item_name: result.value}));
+                    Swal.fire('Processing', 'Robot is moving to the nearest slot...', 'info');
+                }
+            });
+        }
+
+        function lookupItem() {
+            if(!selectedSlot) return Swal.fire('Error', 'Please select a slot first!', 'warning');
+            const item = warehouseData[`slot_${selectedSlot}`];
+            if(!item || item.status !== "Occupied") return Swal.fire('Empty', 'This slot has no item.', 'info');
+            
+            Swal.fire({
+                title: 'Item Information',
+                html: `<div style="text-align:left"><b>Name:</b> ${item.item_name}<br><b>UID:</b> ${item.uid}<br><b>Time:</b> ${item.time}</div>`,
+                background: '#1e293b', color: '#fff'
+            });
         }
 
         function connect() {
             client = mqtt.connect(CFG.url, CFG.opt);
             client.on('connect', () => {
-                // Subscribe thêm topic robot_state và ack để đồng bộ quy trình
-                client.subscribe(['warehouse/status', 'warehouse/history', 'warehouse/history_init', 'warehouse/robot_state', 'warehouse/ack', 'warehouse/error']);
+                client.subscribe('warehouse/status');
                 client.publish('warehouse/command', JSON.stringify({action: "GET_STATUS"}));
-                client.publish('warehouse/command', JSON.stringify({action: "GET_HISTORY"}));
             });
             client.on('message', (t, m) => {
-                const s = m.toString();
-                let d; try { d = JSON.parse(s); } catch(e) { d = s; }
-
-                if(t === 'warehouse/status') updateUI(d);
-                if(t === 'warehouse/robot_state') updateRobotState(d);
-                if(t === 'warehouse/ack') alert("Hệ thống: " + d);
-                if(t === 'warehouse/error') alert("LỖI: " + d);
-                if(t === 'warehouse/history' && s !== lastMsg) { addRow(d, false); lastMsg = s; }
-                if(t === 'warehouse/history_init') { document.querySelector("#hTable tbody").innerHTML = ""; d.forEach(l => addRow(l, true)); }
+                warehouseData = JSON.parse(m.toString());
+                updateGrid();
             });
         }
 
-        // Cập nhật trạng thái hiển thị của Robot
-        function updateRobotState(state) {
-            const el = document.getElementById('robot-status');
-            el.style.display = 'block';
-            if(state === "WAITING_CONVEYOR") el.innerText = "🤖 ROBOT: Đang đợi băng tải cấp hàng...";
-            else if(state === "WAITING_RFID") el.innerText = "🤖 ROBOT: Đang quét thẻ RFID hàng hóa...";
-            else { el.innerText = "🤖 ROBOT: Sẵn sàng"; setTimeout(() => el.style.display='none', 3000); }
-        }
-
-        // Gửi lệnh IMPORT thông minh (không cần chọn slot trước)
-        function smartImport() {
-            client.publish('warehouse/command', JSON.stringify({action: "IMPORT"}));
-            alert("Lệnh đã gửi! Vui lòng đợi băng tải và quẹt thẻ RFID tại trạm check-in.");
-        }
-
-        function sendCmd(act) {
-            const sid = document.getElementById('sID').value;
-            if(!sid && act === 'EXPORT') return alert("Vui lòng chọn ô kho cần xuất hàng!");
-            
-            interactingSlot = sid;
-            client.publish('warehouse/command', JSON.stringify({action: act, slot_id: parseInt(sid)}));
-            
-            document.getElementById('sID').value = "";
-            document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
-        }
-
-        function updateUI(data) {
+        function updateGrid() {
             for(let i=1; i<=30; i++) {
-                const s = data[`slot_${i}`], div = document.getElementById(`s-${i}`), span = document.getElementById(`u-${i}`);
-                if(s && s.status === "Occupied") { div.classList.add('occupied'); span.innerText = s.uid; }
-                else { div.classList.remove('occupied'); span.innerText = "Available"; }
-                
-                if(interactingSlot == i) {
-                    div.classList.add('blink-glow');
-                    setTimeout(() => { div.classList.remove('blink-glow'); interactingSlot = null; }, 3000);
+                const s = warehouseData[`slot_${i}`], div = document.getElementById(`s-${i}`), nameEl = document.getElementById(`name-${i}`);
+                if(s && s.status === "Occupied") {
+                    div.classList.add('occupied');
+                    nameEl.innerText = s.item_name; // Hiển thị tên món hàng thay vì UID
+                } else {
+                    div.classList.remove('occupied');
+                    nameEl.innerText = "Empty";
                 }
             }
         }
 
-        function showTab(id) {
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById(id).classList.add('active');
-            event.currentTarget.classList.add('active');
+        function confirmExport() {
+            if(!selectedSlot) return Swal.fire('Error', 'Select a slot to export!', 'warning');
+            client.publish('warehouse/command', JSON.stringify({action: "EXPORT", slot_id: selectedSlot}));
+            selectedSlot = null;
         }
 
-        function addRow(l, batch) {
-            const row = `<tr><td>${l.time}</td><td>Slot ${l.slot}</td><td><b>${l.act}</b></td><td>${l.uid}</td></tr>`;
-            document.querySelector("#hTable tbody").insertAdjacentHTML(batch ? 'beforeend' : 'afterbegin', row);
-        }
-
-        function adminAction(type) {
-            if(prompt("Admin Password:") === "hcmute2026") {
-                if(type === 'EXCEL') {
-                    const wb = XLSX.utils.table_to_book(document.getElementById("hTable"));
-                    XLSX.writeFile(wb, "Warehouse_Report.xlsx");
-                } else client.publish('warehouse/command', JSON.stringify({action: "RESET_HISTORY"}));
-            } else alert("Denied!");
-        }
+        window.onload = init;
     </script>
 </body>
 </html>
