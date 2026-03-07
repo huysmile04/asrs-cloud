@@ -2,36 +2,66 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>AS/RS Pro | bit.ly/asrs-cloud</title>
+    <title>Smart Warehouse AI | HCMUTE</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: white; margin: 0; padding: 20px; }
-        .grid-container { display: grid; grid-template-columns: repeat(6, 1fr); gap: 15px; margin-top: 20px; }
-        .slot { 
-            background: #1e293b; padding: 20px; border-radius: 12px; border: 2px solid #334155; 
-            transition: 0.3s; cursor: pointer; text-align: center;
-        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .slot { transition: 0.3s; cursor: pointer; border: 1px solid #334155; }
         .slot.occupied { background: #ef4444; border-color: #991b1b; }
-        .slot.selected { border-color: #3b82f6; box-shadow: 0 0 15px #3b82f6; transform: scale(1.05); }
-        .item-name { font-weight: bold; font-size: 14px; margin-top: 5px; display: block; color: #f1c40f; }
-        .controls { background: #1e293b; padding: 20px; border-radius: 15px; display: flex; gap: 20px; justify-content: center; }
-        button { padding: 12px 25px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; }
-        .btn-import { background: #10b981; color: white; }
-        .btn-export { background: #3b82f6; color: white; }
-        .btn-lookup { background: #f59e0b; color: white; }
+        .slot.selected { border: 3px solid #3b82f6 !important; box-shadow: 0 0 15px #3b82f6; transform: scale(1.05); }
+        .item-label { font-size: 10px; font-weight: bold; color: #f1c40f; display: block; margin-top: 5px; }
     </style>
 </head>
-<body onclick="handleDeselect(event)">
-    <h2 style="text-align:center; color:#3b82f6">🚀 SMART WAREHOUSE AI</h2>
+<body class="bg-[#0f172a] text-slate-100" onclick="deselectSlot()">
+    <nav class="bg-[#1e293b] border-b border-slate-700 p-4 sticky top-0 z-40">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <img src="ute_logo.png" class="h-8">
+                <span class="font-bold text-blue-400">SMART WAREHOUSE AI</span>
+            </div>
+            <div class="flex gap-6 text-sm font-medium">
+                <button onclick="showTab('tab-dash')" class="nav-btn text-blue-400"><i class="fas fa-chart-line mr-1"></i> DASHBOARD</button>
+                <button onclick="showTab('tab-map')" class="nav-btn"><i class="fas fa-th mr-1"></i> MAP</button>
+                <button onclick="showTab('tab-logs')" class="nav-btn"><i class="fas fa-history mr-1"></i> LOGS</button>
+            </div>
+        </div>
+    </nav>
 
-    <div class="controls" onclick="event.stopPropagation()">
-        <button class="btn-import" onclick="openImportForm()">IMPORT NEW ITEM</button>
-        <button class="btn-lookup" onclick="lookupItem()">LOOKUP INFO</button>
-        <button class="btn-export" onclick="confirmExport()">EXPORT ITEM</button>
+    <div class="container mx-auto p-8">
+        <div id="tab-map" class="tab-content active space-y-8">
+            <div class="bg-[#1e293b] p-6 rounded-2xl border border-slate-700 flex justify-center gap-4" onclick="event.stopPropagation()">
+                <button onclick="openImportForm()" class="bg-emerald-600 px-8 py-3 rounded-xl font-bold hover:bg-emerald-700 transition"><i class="fas fa-plus mr-2"></i>IMPORT ITEM</button>
+                <button onclick="lookupItem()" class="bg-amber-500 px-8 py-3 rounded-xl font-bold hover:bg-amber-600 transition"><i class="fas fa-search mr-2"></i>LOOKUP</button>
+                <button onclick="confirmExport()" class="bg-slate-700 px-8 py-3 rounded-xl font-bold hover:bg-slate-600 transition"><i class="fas fa-upload mr-2"></i>EXPORT</button>
+            </div>
+            
+            <div id="grid" class="grid grid-cols-2 md:grid-cols-6 gap-4"></div>
+        </div>
+
+        <div id="tab-dash" class="tab-content grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-[#1e293b] p-6 rounded-2xl border border-slate-700 text-center">
+                <h3 class="text-slate-500 text-xs uppercase font-bold mb-4">Storage Usage</h3>
+                <p id="usage-stat" class="text-4xl font-black text-blue-500">0%</p>
+            </div>
+            <div class="bg-[#1e293b] p-6 rounded-2xl border border-slate-700 text-center">
+                <h3 class="text-slate-500 text-xs uppercase font-bold mb-4">System Status</h3>
+                <p class="text-emerald-500 font-bold italic">● Connected</p>
+            </div>
+        </div>
+
+        <div id="tab-logs" class="tab-content bg-[#1e293b] rounded-2xl border border-slate-700 overflow-hidden">
+            <table class="w-full text-left" id="logTable">
+                <thead class="bg-slate-900 text-slate-400">
+                    <tr><th class="p-4">Time</th><th class="p-4">Slot</th><th class="p-4">Action</th><th class="p-4">Item Name</th></tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800"></tbody>
+            </table>
+        </div>
     </div>
-
-    <div class="grid-container" id="grid"></div>
 
     <script>
         const CFG = { url: 'wss://5031841c1f8d4218bafa640220641d55.s1.eu.hivemq.cloud:8884/mqtt', opt: { username: 'lhuy04', password: 'Hcmute2026', protocol: 'wss', port: 8884 } };
@@ -40,9 +70,9 @@
         function init() {
             const g = document.getElementById('grid'); g.innerHTML = "";
             for(let i=1; i<=30; i++) {
-                g.innerHTML += `<div class="slot" id="s-${i}" onclick="selectSlot(event, ${i})">
-                    <small>Slot ${i}</small>
-                    <span id="name-${i}" class="item-name">Empty</span>
+                g.innerHTML += `<div class="slot bg-slate-800/50 p-6 rounded-xl text-center" id="s-${i}" onclick="selectSlot(event, ${i})">
+                    <span class="text-[10px] text-slate-500 font-bold uppercase">Slot ${i}</span>
+                    <span id="name-${i}" class="item-label">Empty</span>
                 </div>`;
             }
             connect();
@@ -55,34 +85,34 @@
             selectedSlot = id;
         }
 
-        function handleDeselect(e) {
+        function deselectSlot() {
             document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
             selectedSlot = null;
         }
 
         function openImportForm() {
             Swal.fire({
-                title: 'Import Item',
+                title: 'Import New Item',
                 input: 'text',
-                inputLabel: 'Enter Item Name',
-                showCancelButton: true,
-                background: '#1e293b', color: '#fff'
-            }).then((result) => {
-                if (result.isConfirmed && result.value) {
-                    client.publish('warehouse/command', JSON.stringify({action: "IMPORT", item_name: result.value}));
-                    Swal.fire('Processing', 'Robot is moving to the nearest slot...', 'info');
+                inputPlaceholder: 'Enter item name (e.g. Fried Chicken)',
+                background: '#1e293b', color: '#fff',
+                showCancelButton: true, confirmButtonColor: '#10b981'
+            }).then((res) => {
+                if (res.isConfirmed && res.value) {
+                    client.publish('warehouse/command', JSON.stringify({action: "IMPORT", item_name: res.value}));
+                    Swal.fire({icon: 'info', title: 'Processing', text: 'Robot is assigning to the nearest slot...', background: '#1e293b', color: '#fff', timer: 3000});
                 }
             });
         }
 
         function lookupItem() {
-            if(!selectedSlot) return Swal.fire('Error', 'Please select a slot first!', 'warning');
+            if(!selectedSlot) return Swal.fire({icon: 'warning', title: 'Select a slot first!', background: '#1e293b', color: '#fff'});
             const item = warehouseData[`slot_${selectedSlot}`];
-            if(!item || item.status !== "Occupied") return Swal.fire('Empty', 'This slot has no item.', 'info');
+            if(!item || item.status !== "Occupied") return Swal.fire({title: 'Empty Slot', background: '#1e293b', color: '#fff'});
             
             Swal.fire({
-                title: 'Item Information',
-                html: `<div style="text-align:left"><b>Name:</b> ${item.item_name}<br><b>UID:</b> ${item.uid}<br><b>Time:</b> ${item.time}</div>`,
+                title: 'Item Details',
+                html: `<div class="text-left"><b>Name:</b> ${item.item_name}<br><b>Tag UID:</b> ${item.uid}<br><b>Time:</b> ${item.time}</div>`,
                 background: '#1e293b', color: '#fff'
             });
         }
@@ -90,32 +120,48 @@
         function connect() {
             client = mqtt.connect(CFG.url, CFG.opt);
             client.on('connect', () => {
-                client.subscribe('warehouse/status');
+                client.subscribe(['warehouse/status', 'warehouse/history']);
                 client.publish('warehouse/command', JSON.stringify({action: "GET_STATUS"}));
             });
             client.on('message', (t, m) => {
-                warehouseData = JSON.parse(m.toString());
-                updateGrid();
+                if(t === 'warehouse/status') {
+                    warehouseData = JSON.parse(m.toString());
+                    updateGrid();
+                }
+                if(t === 'warehouse/history') addLog(JSON.parse(m.toString()));
             });
         }
 
         function updateGrid() {
+            let occ = 0;
             for(let i=1; i<=30; i++) {
                 const s = warehouseData[`slot_${i}`], div = document.getElementById(`s-${i}`), nameEl = document.getElementById(`name-${i}`);
                 if(s && s.status === "Occupied") {
                     div.classList.add('occupied');
-                    nameEl.innerText = s.item_name; // Hiển thị tên món hàng thay vì UID
+                    nameEl.innerText = s.item_name; occ++;
                 } else {
                     div.classList.remove('occupied');
                     nameEl.innerText = "Empty";
                 }
             }
+            document.getElementById('usage-stat').innerText = Math.round((occ/30)*100) + "%";
         }
 
         function confirmExport() {
-            if(!selectedSlot) return Swal.fire('Error', 'Select a slot to export!', 'warning');
+            if(!selectedSlot) return;
             client.publish('warehouse/command', JSON.stringify({action: "EXPORT", slot_id: selectedSlot}));
-            selectedSlot = null;
+        }
+
+        function showTab(id) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('text-blue-400'));
+            document.getElementById(id).classList.add('active');
+            event.currentTarget.classList.add('text-blue-400');
+        }
+
+        function addLog(l) {
+            const row = `<tr><td class="p-4 text-xs opacity-50">${l.time}</td><td class="p-4 font-bold">Slot ${l.slot}</td><td class="p-4 text-blue-400">${l.act}</td><td class="p-4 font-mono text-sm">${l.item || '---'}</td></tr>`;
+            document.querySelector("#logTable tbody").insertAdjacentHTML('afterbegin', row);
         }
 
         window.onload = init;
