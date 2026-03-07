@@ -154,21 +154,25 @@
         async function openImportModal() {
             const { value: formValues } = await Swal.fire({
                 title: '📦 KHAI BÁO HÀNG HÓA NHẬP KHO',
+                width: '800px', // <<< THÊM DÒNG NÀY ĐỂ MỞ RỘNG CỬA SỔ
                 html:
-                    '<div style="text-align:left">' +
-                    '<label class="swal-form-label">Tên món hàng:</label>' +
-                    '<input id="swal-name" class="swal2-input swal-form-input" placeholder="Ví dụ: Chip xử lý...">' +
-                    '<label class="swal-form-label">Loại danh mục:</label>' +
-                    '<select id="swal-cat" class="swal2-input swal-form-input">' +
-                        '<option value="Linh kiện">Linh kiện điện tử</option>' +
-                        '<option value="Cơ khí">Phụ tùng cơ khí</option>' +
-                        '<option value="Thực phẩm">Thực phẩm đóng gói</option>' +
-                        '<option value="Khác">Hàng hóa khác</option>' +
-                    '</select>' +
-                    '<label class="swal-form-label">Nhà cung cấp:</label>' +
-                    '<input id="swal-sup" class="swal2-input swal-form-input" placeholder="Tên công ty...">' +
-                    '<label class="swal-form-label">Ghi chú bảo quản:</label>' +
-                    '<input id="swal-note" class="swal2-input swal-form-input" placeholder="Yêu cầu đặc biệt...">' +
+                    '<div style="text-align:left; display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">' + 
+                    // Mình gợi ý dùng Grid để chia 2 cột cho đẹp
+                    '<div>' +
+                        '<label class="swal-form-label">Tên món hàng:</label>' +
+                        '<input id="swal-name" class="swal2-input swal-form-input" style="margin: 5px 0" placeholder="Chip xử lý...">' +
+                        '<label class="swal-form-label">Loại danh mục:</label>' +
+                        '<select id="swal-cat" class="swal2-input swal-form-input" style="margin: 5px 0">' +
+                            '<option value="Linh kiện">Linh kiện điện tử</option>' +
+                            '<option value="Cơ khí">Phụ tùng cơ khí</option>' +
+                        '</select>' +
+                    '</div>' +
+                    '<div>' +
+                        '<label class="swal-form-label">Nhà cung cấp:</label>' +
+                        '<input id="swal-sup" class="swal2-input swal-form-input" style="margin: 5px 0" placeholder="Tên công ty...">' +
+                        '<label class="swal-form-label">Ghi chú bảo quản:</label>' +
+                        '<input id="swal-note" class="swal2-input swal-form-input" style="margin: 5px 0" placeholder="Yêu cầu đặc biệt...">' +
+                    '</div>' +
                     '</div>',
                 focusConfirm: false,
                 background: '#16213e', color: '#fff',
@@ -257,3 +261,4 @@
     </script>
 </body>
 </html>
+
