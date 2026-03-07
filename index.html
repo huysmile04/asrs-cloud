@@ -212,7 +212,8 @@
 
         function addRow(l, batch) {
             const row = `<tr><td>${l.time}</td><td>Slot ${l.slot}</td><td><b>${l.act}</b></td><td>${l.item || '---'}</td></tr>`;
-            document.querySelector("#hTable tbody").insertAdjacentHTML(batch ? 'beforeend' : 'afterbegin', row);
+            
+            document.querySelector("#hTable tbody").insertAdjacentHTML('afterbegin', row);
         }
 
         function adminAction(type) {
@@ -226,3 +227,4 @@
     </script>
 </body>
 </html>
+
