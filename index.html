@@ -9,10 +9,9 @@
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: white; text-align: center; margin: 0; padding: 20px; }
         
+        /* Hiệu ứng nháy sáng và chọn ô */
         .blink-glow { animation: glow-pulse 1s infinite alternate; border: 2px solid #f1c40f !important; box-shadow: 0 0 15px #f1c40f; }
         @keyframes glow-pulse { from { opacity: 1; } to { opacity: 0.5; } }
-
-        /* Hiệu ứng chọn ô */
         .selected { border: 3px solid #3498db !important; transform: scale(1.05); z-index: 10; box-shadow: 0 0 15px #3498db; }
         
         #login-overlay { position: fixed; inset: 0; background: #1a1a2e; z-index: 100; display: flex; justify-content: center; align-items: center; }
@@ -30,18 +29,21 @@
         .slot { background: #27ae60; padding: 10px; border-radius: 5px; border: 1px solid #0f3460; transition: 0.3s; height: 80px; display: flex; flex-direction: column; justify-content: center; cursor: pointer; overflow: hidden; }
         .slot:hover { background: #2ecc71; }
         .slot.occupied { background: #e74c3c; }
-        
-        /* Hiển thị tên hàng trên Dashboard */
         .item-name { font-size: 11px; font-weight: bold; color: #f1c40f; margin-top: 5px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
 
         #robot-status { background: #0f3460; padding: 10px; border-radius: 5px; margin-bottom: 15px; font-weight: bold; color: #3498db; display: none; }
+
+        /* Custom style cho form nhập liệu chi tiết */
+        .swal-form-label { text-align: left; display: block; font-weight: bold; margin-top: 10px; font-size: 14px; color: #3498db; }
+        .swal-form-input { width: 100%; box-sizing: border-box; }
 
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th, td { border: 1px solid #0f3460; padding: 10px; }
         footer { margin-top: 30px; font-size: 13px; color: #555; border-top: 1px solid #0f3460; padding-top: 15px; }
     </style>
 </head>
-<body onclick="deselectAll()"> <h1>🚀 IOT-BASED AS/RS SYSTEM</h1>
+<body onclick="deselectAll()">
+    <h1>🚀 IOT-BASED AS/RS SYSTEM</h1>
 
     <div id="login-overlay">
         <div class="login-box">
@@ -110,7 +112,7 @@
         }
 
         function selectSlot(event, id) {
-            event.stopPropagation(); // Ngăn sự kiện click lan ra ngoài
+            event.stopPropagation();
             document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
             document.getElementById(`s-${id}`).classList.add('selected');
             selectedSlot = id;
@@ -131,13 +133,12 @@
             client.on('message', (t, m) => {
                 const s = m.toString();
                 let d; try { d = JSON.parse(s); } catch(e) { d = s; }
-
                 if(t === 'warehouse/status') { currentData = d; updateUI(d); }
                 if(t === 'warehouse/robot_state') updateRobotState(d);
                 if(t === 'warehouse/ack') Swal.fire('Thông báo', d, 'success');
                 if(t === 'warehouse/error') Swal.fire('Lỗi', d, 'error');
-                if(t === 'warehouse/history' && s !== lastMsg) { addRow(d, false); lastMsg = s; }
-                if(t === 'warehouse/history_init') { document.querySelector("#hTable tbody").innerHTML = ""; d.forEach(l => addRow(l, true)); }
+                if(t === 'warehouse/history' && s !== lastMsg) { addRow(d); lastMsg = s; }
+                if(t === 'warehouse/history_init') { document.querySelector("#hTable tbody").innerHTML = ""; d.forEach(l => addRow(l)); }
             });
         }
 
@@ -149,35 +150,70 @@
             else { el.innerText = "🤖 ROBOT: Sẵn sàng"; setTimeout(() => el.style.display='none', 3000); }
         }
 
-        // Bảng nhập thông tin hàng hóa khi IMPORT
+        // BẢNG NHẬP THÔNG TIN CHI TIẾT (ERP STYLE)
         async function openImportModal() {
-            const { value: itemName } = await Swal.fire({
-                title: 'Nhập thông tin hàng hóa',
-                input: 'text',
-                inputLabel: 'Tên món hàng:',
-                inputPlaceholder: 'Ví dụ: Linh kiện A...',
+            const { value: formValues } = await Swal.fire({
+                title: '📦 KHAI BÁO HÀNG HÓA NHẬP KHO',
+                html:
+                    '<div style="text-align:left">' +
+                    '<label class="swal-form-label">Tên món hàng:</label>' +
+                    '<input id="swal-name" class="swal2-input swal-form-input" placeholder="Ví dụ: Chip xử lý...">' +
+                    '<label class="swal-form-label">Loại danh mục:</label>' +
+                    '<select id="swal-cat" class="swal2-input swal-form-input">' +
+                        '<option value="Linh kiện">Linh kiện điện tử</option>' +
+                        '<option value="Cơ khí">Phụ tùng cơ khí</option>' +
+                        '<option value="Thực phẩm">Thực phẩm đóng gói</option>' +
+                        '<option value="Khác">Hàng hóa khác</option>' +
+                    '</select>' +
+                    '<label class="swal-form-label">Nhà cung cấp:</label>' +
+                    '<input id="swal-sup" class="swal2-input swal-form-input" placeholder="Tên công ty...">' +
+                    '<label class="swal-form-label">Ghi chú bảo quản:</label>' +
+                    '<input id="swal-note" class="swal2-input swal-form-input" placeholder="Yêu cầu đặc biệt...">' +
+                    '</div>',
+                focusConfirm: false,
+                background: '#16213e', color: '#fff',
                 showCancelButton: true,
-                background: '#16213e', color: '#fff'
+                confirmButtonText: 'XÁC NHẬN NHẬP',
+                preConfirm: () => {
+                    const name = document.getElementById('swal-name').value;
+                    if (!name) { Swal.showValidationMessage('Vui lòng nhập tên hàng!'); return false; }
+                    return {
+                        name: name,
+                        category: document.getElementById('swal-cat').value,
+                        supplier: document.getElementById('swal-sup').value,
+                        note: document.getElementById('swal-note').value
+                    }
+                }
             });
 
-            if (itemName) {
-                client.publish('warehouse/command', JSON.stringify({action: "IMPORT", item_name: itemName}));
+            if (formValues) {
+                // Gửi Metadata xuống Pi
+                client.publish('warehouse/command', JSON.stringify({
+                    action: "IMPORT", 
+                    item_name: formValues.name,
+                    item_details: formValues 
+                }));
                 Swal.fire('Đã nhận lệnh', 'Hệ thống đang tìm ô trống gần nhất...', 'info');
             }
         }
 
-        // Tra cứu thông tin món hàng
+        // TRA CỨU THÔNG TIN CHI TIẾT
         function lookupItem() {
             if(!selectedSlot) return Swal.fire('Lưu ý', 'Vui lòng chọn 1 ô trên bản đồ!', 'warning');
             const item = currentData[`slot_${selectedSlot}`];
             if(!item || item.status !== "Occupied") return Swal.fire('Thông tin', 'Ô này đang trống.', 'info');
 
+            const details = item.item_details || { category: "---", supplier: "---", note: "---" };
+
             Swal.fire({
-                title: `Thông tin Ô ${selectedSlot}`,
-                html: `<div style="text-align:left">
-                    <b>Tên hàng:</b> ${item.item_name}<br>
+                title: `CHI TIẾT Ô ${selectedSlot}`,
+                html: `<div style="text-align:left; line-height:1.6">
+                    <b style="color:#e94560">Sản phẩm:</b> ${item.item_name}<br>
+                    <b style="color:#3498db">Danh mục:</b> ${details.category}<br>
+                    <b style="color:#3498db">Nhà cung cấp:</b> ${details.supplier}<br>
+                    <b style="color:#3498db">Ghi chú:</b> ${details.note}<br><hr>
                     <b>Mã RFID ô:</b> ${item.uid}<br>
-                    <b>Thời gian:</b> ${item.time || '---'}
+                    <b>Thời gian nhập:</b> ${item.time || '---'}
                 </div>`,
                 icon: 'info',
                 background: '#16213e', color: '#fff'
@@ -193,13 +229,8 @@
         function updateUI(data) {
             for(let i=1; i<=30; i++) {
                 const s = data[`slot_${i}`], div = document.getElementById(`s-${i}`), nameSpan = document.getElementById(`name-${i}`);
-                if(s && s.status === "Occupied") { 
-                    div.classList.add('occupied'); 
-                    nameSpan.innerText = s.item_name || "Occupied"; // Hiển thị tên món hàng
-                } else { 
-                    div.classList.remove('occupied'); 
-                    nameSpan.innerText = "Available"; 
-                }
+                if(s && s.status === "Occupied") { div.classList.add('occupied'); nameSpan.innerText = s.item_name; }
+                else { div.classList.remove('occupied'); nameSpan.innerText = "Available"; }
             }
         }
 
@@ -210,9 +241,8 @@
             event.currentTarget.classList.add('active');
         }
 
-        function addRow(l, batch) {
+        function addRow(l) {
             const row = `<tr><td>${l.time}</td><td>Slot ${l.slot}</td><td><b>${l.act}</b></td><td>${l.item || '---'}</td></tr>`;
-            
             document.querySelector("#hTable tbody").insertAdjacentHTML('afterbegin', row);
         }
 
@@ -227,4 +257,3 @@
     </script>
 </body>
 </html>
-
