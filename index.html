@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <title>Smart AS/RS | bit.ly/asrs-cloud</title>
-    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mqtt@5.3.4/dist/mqtt.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.17.0/dist/xlsx.full.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" crossorigin="anonymous"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: white; text-align: center; margin: 0; padding: 20px; }
         
@@ -33,7 +33,6 @@
 
         #robot-status { background: #0f3460; padding: 10px; border-radius: 5px; margin-bottom: 15px; font-weight: bold; color: #3498db; display: none; }
 
-        /* Custom style cho form nhập liệu chi tiết */
         .swal-form-label { text-align: left; display: block; font-weight: bold; margin-top: 10px; font-size: 14px; color: #3498db; }
         .swal-form-input { width: 100%; box-sizing: border-box; }
 
@@ -91,7 +90,19 @@
     </div>
 
     <script>
-        const CFG = { url: 'wss://5031841c1f8d4218bafa640220641d55.s1.eu.hivemq.cloud:8884/mqtt', opt: { username: 'lhuy04', password: 'Hcmute2026', protocol: 'wss', port: 8884 } };
+        // FIX: Thêm clientId ngẫu nhiên và tắt bộ nhớ đệm để tránh lỗi 'blocked access to storage'
+        const CFG = { 
+            url: 'wss://5031841c1f8d4218bafa640220641d55.s1.eu.hivemq.cloud:8884/mqtt', 
+            opt: { 
+                username: 'lhuy04', 
+                password: 'Hcmute2026', 
+                protocol: 'wss', 
+                port: 8884,
+                clientId: 'web_client_' + Math.random().toString(16).substr(2, 8),
+                clean: true, // Không dùng session cũ
+                connectTimeout: 4000
+            } 
+        };
         let client, lastMsg = "", selectedSlot = null, currentData = {};
 
         function doLogin() {
@@ -124,6 +135,11 @@
         }
 
         function connect() {
+            // Kiểm tra thư viện MQTT đã tải chưa trước khi gọi
+            if (typeof mqtt === 'undefined') {
+                Swal.fire('Lỗi hệ thống', 'Trình duyệt chặn tải thư viện kết nối. Hãy tắt "Tracking Prevention" hoặc dùng trình duyệt khác!', 'error');
+                return;
+            }
             client = mqtt.connect(CFG.url, CFG.opt);
             client.on('connect', () => {
                 client.subscribe(['warehouse/status', 'warehouse/history', 'warehouse/history_init', 'warehouse/robot_state', 'warehouse/ack', 'warehouse/error']);
@@ -150,14 +166,12 @@
             else { el.innerText = "🤖 ROBOT: Sẵn sàng"; setTimeout(() => el.style.display='none', 3000); }
         }
 
-        // BẢNG NHẬP THÔNG TIN CHI TIẾT (ERP STYLE)
         async function openImportModal() {
             const { value: formValues } = await Swal.fire({
                 title: '📦 KHAI BÁO HÀNG HÓA NHẬP KHO',
-                width: '800px', // <<< THÊM DÒNG NÀY ĐỂ MỞ RỘNG CỬA SỔ
+                width: '800px',
                 html:
                     '<div style="text-align:left; display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">' + 
-                    // Mình gợi ý dùng Grid để chia 2 cột cho đẹp
                     '<div>' +
                         '<label class="swal-form-label">Tên món hàng:</label>' +
                         '<input id="swal-name" class="swal2-input swal-form-input" style="margin: 5px 0" placeholder="Chip xử lý...">' +
@@ -191,7 +205,6 @@
             });
 
             if (formValues) {
-                // Gửi Metadata xuống Pi
                 client.publish('warehouse/command', JSON.stringify({
                     action: "IMPORT", 
                     item_name: formValues.name,
@@ -201,14 +214,11 @@
             }
         }
 
-        // TRA CỨU THÔNG TIN CHI TIẾT
         function lookupItem() {
             if(!selectedSlot) return Swal.fire('Lưu ý', 'Vui lòng chọn 1 ô trên bản đồ!', 'warning');
             const item = currentData[`slot_${selectedSlot}`];
             if(!item || item.status !== "Occupied") return Swal.fire('Thông tin', 'Ô này đang trống.', 'info');
-
             const details = item.item_details || { category: "---", supplier: "---", note: "---" };
-
             Swal.fire({
                 title: `CHI TIẾT Ô ${selectedSlot}`,
                 html: `<div style="text-align:left; line-height:1.6">
@@ -261,4 +271,3 @@
     </script>
 </body>
 </html>
-
