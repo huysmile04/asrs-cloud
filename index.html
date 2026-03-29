@@ -2,14 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Smart AS/RS | bit.ly/asrs-cloud</title>
+    <title>SMART AS/RS | DASHBOARD</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: white; text-align: center; margin: 0; padding: 20px; }
-        
-        /* Hiệu ứng nháy sáng và chọn ô */
         .blink-glow { animation: glow-pulse 1s infinite alternate; border: 2px solid #f1c40f !important; box-shadow: 0 0 15px #f1c40f; }
         @keyframes glow-pulse { from { opacity: 1; } to { opacity: 0.5; } }
         .selected { border: 3px solid #3498db !important; transform: scale(1.05); z-index: 10; box-shadow: 0 0 15px #3498db; }
@@ -31,13 +29,10 @@
         .slot.occupied { background: #e74c3c; }
         .item-name { font-size: 11px; font-weight: bold; color: #f1c40f; margin-top: 5px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
 
-        #robot-status { background: #0f3460; padding: 10px; border-radius: 5px; margin-bottom: 15px; font-weight: bold; color: #3498db; display: none; }
+        #robot-status { background: #0f3460; padding: 15px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; color: #3498db; border: 1px solid #3498db; }
 
-        /* Custom style cho form nhập liệu chi tiết */
         .swal-form-label { text-align: left; display: block; font-weight: bold; margin-top: 10px; font-size: 14px; color: #3498db; }
-        .swal-form-input { width: 100%; box-sizing: border-box; }
-
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: #16213e; }
         th, td { border: 1px solid #0f3460; padding: 10px; }
         footer { margin-top: 30px; font-size: 13px; color: #555; border-top: 1px solid #0f3460; padding-top: 15px; }
     </style>
@@ -47,7 +42,7 @@
 
     <div id="login-overlay">
         <div class="login-box">
-            <h3>🔐 System Login</h3>
+            <h3>🔐 SYSTEM LOGIN</h3>
             <input type="text" id="user" placeholder="Username">
             <input type="password" id="pass" placeholder="Password">
             <button onclick="doLogin()" style="width:100%; padding:12px; background:#e94560; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold">ACCESS DASHBOARD</button>
@@ -55,12 +50,12 @@
     </div>
 
     <div id="main-content" onclick="event.stopPropagation()">
-        <div id="robot-status">🤖 ROBOT: IDLE</div>
+        <div id="robot-status">ROBOT STATUS: CONNECTING...</div>
 
         <div class="tabs">
-            <button class="tab-btn active" onclick="showTab('tab-map')">WAREHOUSE MAP</button>
-            <button class="tab-btn" onclick="showTab('tab-logs')">OPERATION LOGS</button>
-            <button class="tab-btn" onclick="showTab('tab-tools')">SYSTEM TOOLS</button>
+            <button class="tab-btn active" onclick="showTab(event, 'tab-map')">WAREHOUSE MAP</button>
+            <button class="tab-btn" onclick="showTab(event, 'tab-logs')">OPERATION LOGS</button>
+            <button class="tab-btn" onclick="showTab(event, 'tab-tools')">SYSTEM TOOLS</button>
         </div>
 
         <div id="tab-map" class="tab-content active">
@@ -81,7 +76,6 @@
 
         <div id="tab-tools" class="tab-content">
             <button onclick="adminAction('EXCEL')" style="background:#27ae60; color:white; padding:15px; border:none; border-radius:5px; margin:10px; font-weight:bold">📊 EXPORT REPORT</button>
-            <button onclick="adminAction('RESET')" style="background:#e74c3c; color:white; padding:15px; border:none; border-radius:5px; margin:10px; font-weight:bold">🗑️ CLEAR SSD</button>
         </div>
 
         <footer>
@@ -91,15 +85,33 @@
     </div>
 
     <script>
-        const CFG = { url: 'wss://5031841c1f8d4218bafa640220641d55.s1.eu.hivemq.cloud:8884/mqtt', opt: { username: 'lhuy04', password: 'Hcmute2026', protocol: 'wss', port: 8884 } };
-        let client, lastMsg = "", selectedSlot = null, currentData = {};
+        // --- CAU HINH MQTT ---
+        const CFG = { 
+            url: 'wss://5031841c1f8d4218bafa640220641d55.s1.eu.hivemq.cloud:8884/mqtt', 
+            opt: { 
+                username: 'lhuy04', 
+                password: 'Hcmute2026', 
+                clientId: 'Web_Huy_' + Math.random().toString(16).substr(2, 8),
+                clean: true,
+                connectTimeout: 4000
+            } 
+        };
+
+        let client, selectedSlot = null, currentData = {};
+
+        // GOI KET NOI NGAY KHI MO TRANG
+        connectMQTT();
 
         function doLogin() {
-            if(document.getElementById('user').value === "admin" && document.getElementById('pass').value === "hcmute2026") {
+            const u = document.getElementById('user').value;
+            const p = document.getElementById('pass').value;
+            if(u === "admin" && p === "hcmute2026") {
                 document.getElementById('login-overlay').style.display = 'none';
                 document.getElementById('main-content').style.display = 'block';
-                initGrid(); connect();
-            } else alert("Mật khẩu không đúng!");
+                initGrid();
+            } else {
+                Swal.fire('Error', 'Sai tai khoan hoac mat khau!', 'error');
+            }
         }
 
         function initGrid() {
@@ -108,6 +120,61 @@
                 g.innerHTML += `<div class="slot" id="s-${i}" onclick="selectSlot(event, ${i})">
                     <b>Slot ${i}</b><br><span id="name-${i}" class="item-name">Available</span>
                 </div>`;
+            }
+        }
+
+        function connectMQTT() {
+            client = mqtt.connect(CFG.url, CFG.opt);
+            
+            client.on('connect', () => {
+                document.getElementById('robot-status').innerText = "ROBOT STATUS: ONLINE";
+                client.subscribe(['warehouse/status', 'warehouse/history', 'warehouse/robot_state', 'warehouse/ack', 'warehouse/error']);
+                client.publish('warehouse/command', JSON.stringify({action: "GET_STATUS"}));
+            });
+
+            client.on('message', (topic, message) => {
+                const msg = message.toString();
+                let data; 
+                try { data = JSON.parse(msg); } catch(e) { data = msg; }
+
+                if(topic === 'warehouse/status') { currentData = data; updateUI(data); }
+                if(topic === 'warehouse/robot_state') document.getElementById('robot-status').innerText = "ROBOT: " + data;
+                if(topic === 'warehouse/ack') Swal.fire('Success', data, 'success');
+                if(topic === 'warehouse/error') Swal.fire('System Error', data, 'error');
+                if(topic === 'warehouse/history') addRow(data);
+            });
+        }
+
+        async function openImportModal() {
+            const { value: formValues } = await Swal.fire({
+                title: '📦 NHAP HANG VAO KHO',
+                width: '600px',
+                background: '#16213e', color: '#fff',
+                html: `
+                    <div style="text-align:left">
+                        <label class="swal-form-label">Ten mon hang:</label>
+                        <input id="swal-name" class="swal2-input" placeholder="Vi du: Motor buoc...">
+                        <label class="swal-form-label">Ghi chu:</label>
+                        <input id="swal-note" class="swal2-input" placeholder="Ghi chu them...">
+                    </div>`,
+                focusConfirm: false,
+                showCancelButton: true,
+                preConfirm: () => {
+                    const name = document.getElementById('swal-name').value;
+                    if (!name) { Swal.showValidationMessage('Vui long nhap ten hang!'); return false; }
+                    return { name: name, note: document.getElementById('swal-note').value };
+                }
+            });
+
+            if (formValues) {
+                // GUI KHOI DATA KHOP VOI BACKEND PYTHON
+                client.publish('warehouse/command', JSON.stringify({
+                    action: "IMPORT",
+                    item_details: { 
+                        name: formValues.name, 
+                        note: formValues.note 
+                    }
+                }));
             }
         }
 
@@ -123,122 +190,45 @@
             selectedSlot = null;
         }
 
-        function connect() {
-            client = mqtt.connect(CFG.url, CFG.opt);
-            client.on('connect', () => {
-                client.subscribe(['warehouse/status', 'warehouse/history', 'warehouse/history_init', 'warehouse/robot_state', 'warehouse/ack', 'warehouse/error']);
-                client.publish('warehouse/command', JSON.stringify({action: "GET_STATUS"}));
-                client.publish('warehouse/command', JSON.stringify({action: "GET_HISTORY"}));
-            });
-            client.on('message', (t, m) => {
-                const s = m.toString();
-                let d; try { d = JSON.parse(s); } catch(e) { d = s; }
-                if(t === 'warehouse/status') { currentData = d; updateUI(d); }
-                if(t === 'warehouse/robot_state') updateRobotState(d);
-                if(t === 'warehouse/ack') Swal.fire('Thông báo', d, 'success');
-                if(t === 'warehouse/error') Swal.fire('Lỗi', d, 'error');
-                if(t === 'warehouse/history' && s !== lastMsg) { addRow(d); lastMsg = s; }
-                if(t === 'warehouse/history_init') { document.querySelector("#hTable tbody").innerHTML = ""; d.forEach(l => addRow(l)); }
-            });
+        function sendExport() {
+            if(!selectedSlot) return Swal.fire('Warning', 'Vui long chon o tren ban do!', 'warning');
+            client.publish('warehouse/command', JSON.stringify({
+                action: "EXPORT", 
+                slot_id: selectedSlot 
+            }));
+            deselectAll();
         }
 
-        function updateRobotState(state) {
-            const el = document.getElementById('robot-status');
-            el.style.display = 'block';
-            if(state === "WAITING_CONVEYOR") el.innerText = "🤖 ROBOT: Đang đợi hàng đến...";
-            else if(state === "WAITING_RFID") el.innerText = "🤖 ROBOT: Đang gán mã RFID ô hàng...";
-            else { el.innerText = "🤖 ROBOT: Sẵn sàng"; setTimeout(() => el.style.display='none', 3000); }
-        }
-
-        // BẢNG NHẬP THÔNG TIN CHI TIẾT (ERP STYLE)
-        async function openImportModal() {
-            const { value: formValues } = await Swal.fire({
-                title: '📦 KHAI BÁO HÀNG HÓA NHẬP KHO',
-                width: '800px', // <<< THÊM DÒNG NÀY ĐỂ MỞ RỘNG CỬA SỔ
-                html:
-                    '<div style="text-align:left; display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">' + 
-                    // Mình gợi ý dùng Grid để chia 2 cột cho đẹp
-                    '<div>' +
-                        '<label class="swal-form-label">Tên món hàng:</label>' +
-                        '<input id="swal-name" class="swal2-input swal-form-input" style="margin: 5px 0" placeholder="Chip xử lý...">' +
-                        '<label class="swal-form-label">Loại danh mục:</label>' +
-                        '<select id="swal-cat" class="swal2-input swal-form-input" style="margin: 5px 0">' +
-                            '<option value="Linh kiện">Linh kiện điện tử</option>' +
-                            '<option value="Cơ khí">Phụ tùng cơ khí</option>' +
-                        '</select>' +
-                    '</div>' +
-                    '<div>' +
-                        '<label class="swal-form-label">Nhà cung cấp:</label>' +
-                        '<input id="swal-sup" class="swal2-input swal-form-input" style="margin: 5px 0" placeholder="Tên công ty...">' +
-                        '<label class="swal-form-label">Ghi chú bảo quản:</label>' +
-                        '<input id="swal-note" class="swal2-input swal-form-input" style="margin: 5px 0" placeholder="Yêu cầu đặc biệt...">' +
-                    '</div>' +
-                    '</div>',
-                focusConfirm: false,
-                background: '#16213e', color: '#fff',
-                showCancelButton: true,
-                confirmButtonText: 'XÁC NHẬN NHẬP',
-                preConfirm: () => {
-                    const name = document.getElementById('swal-name').value;
-                    if (!name) { Swal.showValidationMessage('Vui lòng nhập tên hàng!'); return false; }
-                    return {
-                        name: name,
-                        category: document.getElementById('swal-cat').value,
-                        supplier: document.getElementById('swal-sup').value,
-                        note: document.getElementById('swal-note').value
-                    }
-                }
-            });
-
-            if (formValues) {
-                // Gửi Metadata xuống Pi
-                client.publish('warehouse/command', JSON.stringify({
-                    action: "IMPORT", 
-                    item_name: formValues.name,
-                    item_details: formValues 
-                }));
-                Swal.fire('Đã nhận lệnh', 'Hệ thống đang tìm ô trống gần nhất...', 'info');
-            }
-        }
-
-        // TRA CỨU THÔNG TIN CHI TIẾT
         function lookupItem() {
-            if(!selectedSlot) return Swal.fire('Lưu ý', 'Vui lòng chọn 1 ô trên bản đồ!', 'warning');
+            if(!selectedSlot) return Swal.fire('Warning', 'Chua chon o tra cuu!', 'warning');
             const item = currentData[`slot_${selectedSlot}`];
-            if(!item || item.status !== "Occupied") return Swal.fire('Thông tin', 'Ô này đang trống.', 'info');
-
-            const details = item.item_details || { category: "---", supplier: "---", note: "---" };
+            if(!item || item.status !== "Occupied") return Swal.fire('Info', 'O nay dang trong', 'info');
 
             Swal.fire({
-                title: `CHI TIẾT Ô ${selectedSlot}`,
-                html: `<div style="text-align:left; line-height:1.6">
-                    <b style="color:#e94560">Sản phẩm:</b> ${item.item_name}<br>
-                    <b style="color:#3498db">Danh mục:</b> ${details.category}<br>
-                    <b style="color:#3498db">Nhà cung cấp:</b> ${details.supplier}<br>
-                    <b style="color:#3498db">Ghi chú:</b> ${details.note}<br><hr>
-                    <b>Mã RFID ô:</b> ${item.uid}<br>
-                    <b>Thời gian nhập:</b> ${item.time || '---'}
-                </div>`,
-                icon: 'info',
-                background: '#16213e', color: '#fff'
+                title: `INFO SLOT ${selectedSlot}`,
+                background: '#16213e', color: '#fff',
+                html: `<div style="text-align:left">
+                    <b>Product:</b> ${item.item_name}<br>
+                    <b>RFID UID:</b> ${item.uid}<br>
+                    <b>Time:</b> ${item.time}
+                </div>`
             });
-        }
-
-        function sendExport() {
-            if(!selectedSlot) return Swal.fire('Lưu ý', 'Vui lòng chọn ô cần xuất hàng!', 'warning');
-            client.publish('warehouse/command', JSON.stringify({action: "EXPORT", slot_id: selectedSlot}));
-            deselectAll();
         }
 
         function updateUI(data) {
             for(let i=1; i<=30; i++) {
                 const s = data[`slot_${i}`], div = document.getElementById(`s-${i}`), nameSpan = document.getElementById(`name-${i}`);
-                if(s && s.status === "Occupied") { div.classList.add('occupied'); nameSpan.innerText = s.item_name; }
-                else { div.classList.remove('occupied'); nameSpan.innerText = "Available"; }
+                if(s && s.status === "Occupied") { 
+                    div.classList.add('occupied'); 
+                    nameSpan.innerText = s.item_name; 
+                } else { 
+                    div.classList.remove('occupied'); 
+                    nameSpan.innerText = "Available"; 
+                }
             }
         }
 
-        function showTab(id) {
+        function showTab(event, id) {
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.getElementById(id).classList.add('active');
@@ -251,14 +241,11 @@
         }
 
         function adminAction(type) {
-            if(prompt("Admin Password:") === "hcmute2026") {
-                if(type === 'EXCEL') {
-                    const wb = XLSX.utils.table_to_book(document.getElementById("hTable"));
-                    XLSX.writeFile(wb, "Warehouse_Report.xlsx");
-                } else client.publish('warehouse/command', JSON.stringify({action: "RESET_HISTORY"}));
-            } else alert("Denied!");
+            if(type === 'EXCEL') {
+                const wb = XLSX.utils.table_to_book(document.getElementById("hTable"));
+                XLSX.writeFile(wb, "ASRS_Report.xlsx");
+            }
         }
     </script>
 </body>
 </html>
-
