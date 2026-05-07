@@ -99,6 +99,132 @@
         .dashboard-card a:hover {
             text-decoration: underline;
         }
+
+        /* --- LOGS TABLE STYLES --- */
+        .logs-section {
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.06);
+            overflow: hidden;
+        }
+
+        .logs-header {
+            padding: 20px 30px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #fff;
+        }
+
+        .logs-header h3 {
+            color: #1a252f;
+            font-size: 22px;
+        }
+
+        .export-btn {
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .export-btn:hover {
+            opacity: 0.8;
+        }
+
+        .logs-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .logs-table th, .logs-table td {
+            padding: 16px 30px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .logs-table th {
+            background-color: #f8fafc;
+            color: #64748b;
+            font-weight: bold;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .logs-table tbody tr {
+            transition: background-color 0.2s;
+        }
+
+        .logs-table tbody tr:hover {
+            background-color: #f1f5f9;
+        }
+
+        .logs-table td {
+            font-size: 15px;
+            color: #334155;
+        }
+
+        .time-col {
+            font-family: monospace;
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        .slot-col {
+            font-weight: bold;
+            color: #0f172a;
+        }
+
+        .badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            display: inline-block;
+            text-align: center;
+            min-width: 80px;
+        }
+
+        .badge-import {
+            background-color: #e6f4ea;
+            color: #1e8e3e;
+            border: 1px solid #ceead6;
+        }
+
+        .badge-export {
+            background-color: #fce8e6;
+            color: #d93025;
+            border: 1px solid #fad2cf;
+        }
+
+        /* --- CONNECTION STATUS & NOTIFICATIONS --- */
+        #connection-status, #notification {
+            position: fixed;
+            font-family: 'Segoe UI', sans-serif;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border-radius: 8px;
+            font-weight: bold;
+            z-index: 1000;
+            font-size: 14px;
+        }
+
+        #connection-status {
+            top: 20px;
+            right: 20px;
+            min-width: 250px;
+        }
+
+        #notification {
+            top: 80px;
+            right: 20px;
+            min-width: 280px;
+        }
+
     </style>
 </head>
 <body>
@@ -118,36 +244,33 @@
             <div class="dashboard-card">
                 <h3>Warehouse Map</h3>
                 <p>Xem sơ đồ kho hàng và vị trí các kệ lưu trữ.</p>
-                <a href="warehouse.html">Xem chi tiết</a>
+                <a href="warehouse.html" style="background:#00529c; color:white; padding:12px 20px; border-radius:6px; text-decoration:none; display:inline-block;">Mở Warehouse Map</a>
             </div>
             <div class="dashboard-card">
                 <h3>Operation Logs</h3>
                 <p>Xem nhật ký hoạt động của hệ thống lưu kho.</p>
-                <a href="#">Xem chi tiết</a>
+                <a href="logs.html" style="background:#e94560; color:white; padding:12px 20px; border-radius:6px; text-decoration:none; display:inline-block;">Mở Operation Logs</a>
             </div>
             <div class="dashboard-card">
                 <h3>System Tools</h3>
                 <p>Công cụ quản lý và cấu hình hệ thống.</p>
-                <a href="#">Xem chi tiết</a>
+                <a href="warehouse.html" style="background:#27ae60; color:white; padding:12px 20px; border-radius:6px; text-decoration:none; display:inline-block;">Mở System Tools</a>
             </div>
             <div class="dashboard-card">
                 <h3>Reports</h3>
                 <p>Báo cáo thống kê và hiệu suất hệ thống.</p>
-                <a href="#">Xem chi tiết</a>
+                <a href="#" style="background:#333; color:white; padding:12px 20px; border-radius:6px; text-decoration:none; display:inline-block;">Xem chi tiết</a>
             </div>
         </div>
     </main>
 
     <script>
         function logout() {
-            // Xóa thông tin đăng nhập (nếu có lưu)
             localStorage.removeItem('isLoggedIn');
             localStorage.removeItem('username');
-            // Chuyển về trang chủ
             window.location.href = 'index.html';
         }
 
-        // Kiểm tra xem đã đăng nhập chưa
         if (!localStorage.getItem('isLoggedIn')) {
             window.location.href = 'login.html';
         }
