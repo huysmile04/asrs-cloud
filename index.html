@@ -1,206 +1,265 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Smart AS/RS | bit.ly/asrs-cloud</title>
-    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Lưu Kho Tự Động</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: white; text-align: center; margin: 0; padding: 20px; }
+        /* Reset CSS cơ bản */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body, html {
+            height: 100%;
+            width: 100%;
+        }
+
+        body {
+            padding-top: 75px;
+        }
+
+        /* Định dạng Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 40px;
+            background-color: #e5e5e5; /* Màu xám nhạt cho header */
+            border-bottom: 2px solid #ccc;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 1000;
+            height: 75px;
+            box-sizing: border-box;
+        }
+
+        .left-section {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+        }
+
+        /* Phần Logo */
+        .logo {
+            display: flex;
+            align-items: center;
+        }
+
+        .logo img {
+            height: 40px; /* Điều chỉnh chiều cao logo */
+            margin-right: 10px;
+        }
+
+        /* Phần Navigation (Điều hướng) */
+        nav {
+            display: flex;
+            gap: 25px;
+        }
+
+        nav a {
+            text-decoration: none;
+            color: #000;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        nav a:hover {
+            color: #555;
+        }
+
+        /* Nút Log in */
+        .login-btn {
+            background-color: #c9302c; /* Màu đỏ tương tự trong thiết kế */
+            color: white;
+            border: none;
+            padding: 10px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 8px; /* Bo góc */
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .login-btn:hover {
+            background-color: #ac2925;
+        }
+
+        /* Phần nội dung chính (Hero Section) */
+        .hero-section {
+            /* Thay thế đường dẫn ảnh bên dưới bằng ảnh thực tế của bạn */
+            background-image: url('kho.jpg'); 
+            background-size: cover;
+            background-position: center;
+            height: calc(100vh - 75px); /* Trừ đi chiều cao của header */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        /* Lớp phủ làm tối ảnh nền một chút để chữ nổi bật hơn (Tuỳ chọn) */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.3);
+            z-index: 1;
+        }
+
+        /* Tiêu đề lớn */
+        .hero-title {
+            color: white;
+            font-size: 64px;
+            font-weight: bold;
+            text-align: center;
+            z-index: 2; /* Đảm bảo chữ nằm trên lớp overlay */
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.7); /* Tạo bóng đổ cho chữ để dễ đọc hơn */
+            letter-spacing: 2px;
+            animation: fadeInUp 1.5s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        /* --- CSS CHO PHẦN GIỚI THIỆU --- */
+
+.about-section {
+    padding: 80px 40px; /* Tạo khoảng trống phía trên/dưới và hai bên */
+    background-color: #ffffff;
+    display: flex;
+    justify-content: center; /* Căn giữa toàn bộ nội dung */
+}
+
+.about-container {
+    display: flex;
+    align-items: center; /* Căn giữa hai cột theo chiều dọc */
+    max-width: 1200px; /* Giới hạn chiều rộng tối đa để web không bị loãng trên màn hình lớn */
+    width: 100%;
+    gap: 60px; /* Khoảng cách giữa cột ảnh và cột chữ */
+}
+
+/* Cột chứa ảnh */
+.about-image {
+    flex: 1; /* Chiếm 50% không gian container */
+}
+
+.about-image img {
+    width: 100%;
+    height: auto;
+    object-fit: cover; /* Đảm bảo ảnh không bị méo */
+    display: block; /* Tránh khoảng trắng thừa dưới ảnh */
+}
+
+/* Cột chứa chữ */
+.about-text {
+    flex: 1; /* Chiếm 50% không gian container */
+    text-align: center; /* Căn giữa văn bản theo thiết kế */
+    display: flex;
+    flex-direction: column;
+    gap: 15px; /* Khoảng cách đều giữa các thẻ heading và p */
+}
+
+.about-text h2 {
+    font-size: 72px; /* Kích thước chữ rất lớn cho tiêu đề chính */
+    font-weight: bold;
+    color: #000000;
+}
+
+.about-text h3 {
+    font-size: 36px;
+    font-weight: normal;
+    color: #000000;
+}
+
+.about-text p {
+    font-size: 24px;
+    color: #333333;
+}
+
+    .scroll-reveal {
+        opacity: 0;
+        transform: translateY(40px);
+        transition: opacity 0.8s ease, transform 0.8s ease;
+    }
+
+    .scroll-reveal.visible {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    /* Responsive cơ bản cho màn hình nhỏ (Điện thoại/Tablet) */
+    @media (max-width: 768px) {
+        .about-container {
+            flex-direction: column; /* Đẩy chữ xuống dưới ảnh trên màn hình nhỏ */
+            gap: 30px;
+        }
         
-        /* 1. Hiệu ứng nháy sáng nhẹ (Glow) */
-        .blink-glow { 
-            animation: glow-pulse 1s infinite alternate; 
-            border: 2px solid #f1c40f !important;
-            box-shadow: 0 0 15px #f1c40f;
+        .about-text h2 {
+            font-size: 48px;
         }
-        @keyframes glow-pulse {
-            from { opacity: 1; }
-            to { opacity: 0.5; }
-        }
-
-        /* 2. Hiệu ứng khi chọn ô */
-        .selected { 
-            border: 3px solid #f1c40f !important; 
-            transform: scale(1.05);
-            z-index: 10;
-        }
-
-        #login-overlay { position: fixed; inset: 0; background: #1a1a2e; z-index: 100; display: flex; justify-content: center; align-items: center; }
-        .login-box { background: #16213e; padding: 30px; border-radius: 10px; border: 1px solid #e94560; }
-        .login-box input { display: block; width: 250px; padding: 12px; margin: 10px 0; border-radius: 5px; border: none; outline: none; }
-        
-        #main-content { display: none; max-width: 1000px; margin: 0 auto; }
-        .tabs { display: flex; justify-content: center; margin-bottom: 20px; border-bottom: 2px solid #0f3460; }
-        .tab-btn { padding: 12px 25px; background: #16213e; border: none; color: #888; cursor: pointer; border-radius: 8px 8px 0 0; margin: 0 2px; font-weight: bold; }
-        .tab-btn.active { background: #e94560; color: white; }
-        .tab-content { display: none; background: #16213e; padding: 20px; border-radius: 0 0 10px 10px; border: 1px solid #0f3460; border-top: none; }
-        .tab-content.active { display: block; }
-
-        .grid-container { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
-        .slot { 
-            background: #27ae60; padding: 15px; border-radius: 5px; border: 1px solid #0f3460; 
-            transition: 0.3s; height: 60px; display: flex; flex-direction: column; 
-            justify-content: center; cursor: pointer; /* Thêm con trỏ tay */
-        }
-        .slot:hover { background: #2ecc71; }
-        .slot.occupied { background: #e74c3c; }
-        .slot.occupied:hover { background: #ff5e4d; }
-
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { border: 1px solid #0f3460; padding: 10px; }
-        footer { margin-top: 30px; font-size: 13px; color: #555; border-top: 1px solid #0f3460; padding-top: 15px; }
+    }
     </style>
 </head>
 <body>
-    <h1>🚀 IOT-BASED AS/RS SYSTEM</h1>
 
-    <div id="login-overlay">
-        <div class="login-box">
-            <h3>🔐 System Login</h3>
-            <input type="text" id="user" placeholder="Username">
-            <input type="password" id="pass" placeholder="Password">
-            <button onclick="doLogin()" style="width:100%; padding:12px; background:#e94560; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold">ACCESS DASHBOARD</button>
-        </div>
-    </div>
-
-    <div id="main-content">
-        <div class="tabs">
-            <button class="tab-btn active" onclick="showTab('tab-map')">WAREHOUSE MAP</button>
-            <button class="tab-btn" onclick="showTab('tab-logs')">OPERATION LOGS</button>
-            <button class="tab-btn" onclick="showTab('tab-tools')">SYSTEM TOOLS</button>
-        </div>
-
-        <div id="tab-map" class="tab-content active">
-            <p style="color: #888; font-size: 14px; margin-bottom: 15px;">💡 Click on a slot to select, then choose action.</p>
-            <div style="margin-bottom:20px; display:flex; gap:10px; justify-content:center">
-                <input type="number" id="sID" placeholder="Slot" readonly style="width:80px; padding:10px; border-radius:5px; border:none; background: #0f3460; color: #f1c40f; font-weight: bold; text-align: center;">
-                <input type="text" id="uID" placeholder="RFID UID" style="padding:10px; border-radius:5px; border:none">
-                <button onclick="sendCmd('IMPORT')" style="background:#e94560; color:white; padding:10px 20px; border:none; border-radius:5px; font-weight:bold">IMPORT</button>
-                <button onclick="sendCmd('EXPORT')" style="background:#0f3460; color:white; padding:10px 20px; border:1px solid #e94560; border-radius:5px; font-weight:bold">EXPORT</button>
+    <header>
+        <div class="left-section">
+            <div class="logo">
+                <a href="#"><img src="ute_logo.png" alt="HCMUTE Logo" style="height: 40px; width: auto;"></a>
             </div>
-            <div class="grid-container" id="grid"></div>
+            <nav>
+                <a href="#">Giới thiệu</a>
+            </nav>
         </div>
+        <a href="login.html" class="login-btn">Log in</a>
+    </header>
 
-        <div id="tab-logs" class="tab-content">
-            <table id="hTable">
-                <thead><tr><th>Time</th><th>Location</th><th>Action</th><th>UID</th></tr></thead>
-                <tbody></tbody>
-            </table>
+    <main>
+        <div class="hero-section">
+            <div class="overlay"></div>
+            <h1 class="hero-title">HỆ THỐNG LƯU KHO TỰ ĐỘNG</h1>
         </div>
-
-        <div id="tab-tools" class="tab-content">
-            <button onclick="adminAction('EXCEL')" style="background:#27ae60; color:white; padding:15px; border:none; border-radius:5px; margin:10px; font-weight:bold">📊 EXPORT REPORT</button>
-            <button onclick="adminAction('RESET')" style="background:#e74c3c; color:white; padding:15px; border:none; border-radius:5px; margin:10px; font-weight:bold">🗑️ CLEAR SSD</button>
+        <section class="about-section scroll-reveal">
+    <div class="about-container">
+        <div class="about-image">
+            <img src="https://images.unsplash.com/photo-1553413077-190dd305871c?q=80&w=1935&auto=format&fit=crop" alt="Hệ thống kệ lưu kho">
         </div>
-
-        <footer>
-            <p>Access Point: <b style="color: #e94560;">bit.ly/asrs-cloud</b></p>
-            <p>© 2026 HCMUTE Graduation Project - Student: Huy</p>
-        </footer>
+        
+        <div class="about-text">
+            <h2>Lưu kho</h2>
+            <h3>Giới thiệu</h3>
+            <p>abc</p>
+        </div>
     </div>
+</section>
+    </main>
 
     <script>
-        const CFG = { url: 'wss://5031841c1f8d4218bafa640220641d55.s1.eu.hivemq.cloud:8884/mqtt', opt: { username: 'lhuy04', password: 'Hcmute2026', protocol: 'wss', port: 8884 } };
-        let client, lastMsg = "", interactingSlot = null;
-
-        function doLogin() {
-            if(document.getElementById('user').value === "admin" && document.getElementById('pass').value === "hcmute2026") {
-                document.getElementById('login-overlay').style.display = 'none';
-                document.getElementById('main-content').style.display = 'block';
-                initGrid(); connect();
-            } else alert("Mật khẩu không đúng!");
-        }
-
-        // 3. Khởi tạo Grid với tính năng click chọn
-        function initGrid() {
-            const g = document.getElementById('grid'); g.innerHTML = "";
-            for(let i=1; i<=30; i++) {
-                g.innerHTML += `<div class="slot" id="s-${i}" onclick="selectSlot(${i})">
-                    <b>Slot ${i}</b><br><span id="u-${i}">Available</span>
-                </div>`;
-            }
-        }
-
-        function selectSlot(id) {
-            // Xóa highlight cũ
-            document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
-            // Thêm highlight mới và điền số vào ô input
-            document.getElementById(`s-${id}`).classList.add('selected');
-            document.getElementById('sID').value = id;
-            console.log("Selected slot:", id);
-        }
-
-        function connect() {
-            client = mqtt.connect(CFG.url, CFG.opt);
-            client.on('connect', () => {
-                client.subscribe(['warehouse/status', 'warehouse/history', 'warehouse/history_init']);
-                client.publish('warehouse/command', JSON.stringify({action: "GET_STATUS"}));
-                client.publish('warehouse/command', JSON.stringify({action: "GET_HISTORY"}));
+        const revealObserver = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                entry.target.classList.toggle('visible', entry.isIntersecting);
             });
-            client.on('message', (t, m) => {
-                const s = m.toString(), d = JSON.parse(s);
-                if(t === 'warehouse/status') updateUI(d);
-                if(t === 'warehouse/history' && s !== lastMsg) { addRow(d, false); lastMsg = s; }
-                if(t === 'warehouse/history_init') { document.querySelector("#hTable tbody").innerHTML = ""; d.forEach(l => addRow(l, true)); }
-            });
-        }
+        }, { threshold: 0.2 });
 
-        function sendCmd(act) {
-            const sidInput = document.getElementById('sID');
-            const uidInput = document.getElementById('uID');
-            const sid = sidInput.value;
-            
-            if(!sid) return alert("Vui lòng chọn 1 ô trên bản đồ!");
-            
-            // Đánh dấu ô đang tương tác để nháy sáng
-            interactingSlot = sid; 
-            
-            client.publish('warehouse/command', JSON.stringify({action: act, slot_id: parseInt(sid), uid: uidInput.value || "N/A"}));
-            
-            // Tự động xóa trống ô nhập
-            sidInput.value = ""; 
-            uidInput.value = "";
-            document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
-        }
-
-        function updateUI(data) {
-            for(let i=1; i<=30; i++) {
-                const s = data[`slot_${i}`], div = document.getElementById(`s-${i}`), span = document.getElementById(`u-${i}`);
-                if(s && s.status === "Occupied") { div.classList.add('occupied'); span.innerText = s.uid; }
-                else { div.classList.remove('occupied'); span.innerText = "Available"; }
-                
-                // Hiệu ứng nháy sáng 3s khi Robot đang gắp hàng
-                if(interactingSlot == i) {
-                    div.classList.add('blink-glow');
-                    setTimeout(() => { 
-                        div.classList.remove('blink-glow'); 
-                        interactingSlot = null; 
-                    }, 3000);
-                }
-            }
-        }
-
-        function showTab(id) {
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById(id).classList.add('active');
-            event.currentTarget.classList.add('active');
-        }
-
-        function addRow(l, batch) {
-            const row = `<tr><td>${l.time}</td><td>Slot ${l.slot}</td><td><b>${l.act}</b></td><td>${l.uid}</td></tr>`;
-            document.querySelector("#hTable tbody").insertAdjacentHTML(batch ? 'beforeend' : 'afterbegin', row);
-        }
-
-        function adminAction(type) {
-            if(prompt("Admin Password:") === "hcmute2026") {
-                if(type === 'EXCEL') {
-                    const wb = XLSX.utils.table_to_book(document.getElementById("hTable"));
-                    XLSX.writeFile(wb, "Warehouse_Report.xlsx");
-                } else client.publish('warehouse/command', JSON.stringify({action: "RESET_HISTORY"}));
-            } else alert("Denied!");
-        }
+        document.querySelectorAll('.scroll-reveal').forEach((el) => {
+            revealObserver.observe(el);
+        });
     </script>
 </body>
 </html>

@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warehouse Map - HCMUTE</title>
+    <style>
+        /* Reset CSS */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f4f7f6; /* Màu nền xám nhạt hiện đại */
+            color: #333;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        header {
+            background-color: #e5e5e5;
+            padding: 15px 40px;
+            border-bottom: 2px solid #ccc;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 1100px;
+            border-radius: 16px 16px 0 0;
+            margin-bottom: 0;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+        }
+
+        .logo img {
+            height: 40px;
+            margin-right: 10px;
+        }
+
+        .user-info {
+            color: #000;
+            font-weight: bold;
+        }
+
+        .logout-btn {
+            background-color: #c9302c;
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            font-size: 14px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .logout-btn:hover {
+            background-color: #ac2925;
+        }
+
+        .back-btn {
+            background-color: #556270;
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            font-size: 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        .back-btn:hover {
+            background-color: #3f464e;
+        }
+
+        .dashboard-container {
+            width: 100%;
+            max-width: 1100px;
+            background: #ffffff;
+            border-radius: 0 0 16px 16px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+
+        /* --- THANH TRẠNG THÁI (STATUS BAR) --- */
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            background-color: #1a252f; /* Xanh đen đậm */
+            color: white;
+            padding: 15px 30px;
+            font-weight: bold;
+            font-size: 14px;
+            letter-spacing: 1px;
+        }
+
+        .status-item span {
+            font-weight: normal;
+            margin-left: 8px;
+            padding: 4px 10px;
+            border-radius: 20px;
+        }
+
+        .status-disconnected { background-color: #e74c3c; } /* Đỏ */
+        .status-connected { background-color: #2ecc71; } /* Xanh lá */
+        .status-ready { background-color: #2ecc71; } /* Xanh lá */
+        .status-na { background-color: #f39c12; } /* Cam */
+
+        .connect-btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 15px;
+            cursor: pointer;
+            color: white;
+            transition: transform 0.1s, opacity 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .connect-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+
+        .connect-btn.connected {
+            background-color: #2ecc71;
+        }
+
+        .connect-btn.disconnected {
+            background-color: #e74c3c;
+        }
+
+        /* --- BỐ CỤC CHÍNH (MAIN LAYOUT) --- */
+        .main-content {
+            display: flex;
+            padding: 30px;
+            gap: 40px;
+        }
+
+        /* --- CỘT BÊN TRÁI: BẢNG ĐIỀU KHIỂN (ACTION PANEL) --- */
+        .control-panel {
+            flex: 1;
+            background: #fdfdfd;
+            border: 1px solid #eee;
+            border-radius: 12px;
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .control-panel h3 {
+            color: #00529c; /* Xanh HCMUTE */
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+
+        .instruction {
+            font-size: 14px;
+            color: #666;
+            background: #eef2f5;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .input-group label {
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .input-group input {
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 15px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .input-group input:focus {
+            border-color: #00529c;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 15px;
+            cursor: pointer;
+            color: white;
+            transition: transform 0.1s, opacity 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover { opacity: 0.9; transform: translateY(-2px); }
+        .btn-import { background-color: #00529c; } /* Xanh biển */
+        .btn-export { background-color: #c9302c; } /* Đỏ */
+
+        /* --- CỘT BÊN PHẢI: SƠ ĐỒ KHO (WAREHOUSE GRID) --- */
+        .grid-panel {
+            flex: 2;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .slot-card {
+            background: #fff;
+            border: 2px solid #eee;
+            border-radius: 12px;
+            padding: 20px 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+
+        .slot-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+        }
+
+        /* Slot được chọn */
+        .slot-card.selected {
+            border-width: 3px;
+            border-color: #00529c;
+            background-color: #eef5ff;
+            box-shadow: 0 0 0 4px rgba(0, 82, 156, 0.1);
+        }
+
+        /* Trạng thái Slot Trống (Available) */
+        .slot-card.available {
+            border-top: 5px solid #2ecc71;
+            background-color: #f9fffb;
+        }
+        
+        .slot-card.available .status-text { color: #2ecc71; font-weight: bold; }
+
+        /* Trạng thái Slot Có hàng (Occupied) */
+        .slot-card.occupied {
+            border-top: 5px solid #e74c3c;
+            background-color: #fffaf9;
+        }
+        
+        .slot-card.occupied .status-text { color: #e74c3c; font-size: 13px; font-family: monospace; }
+
+        .slot-number {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        /* Responsive cho điện thoại/tablet nhỏ */
+        @media (max-width: 850px) {
+            .main-content { flex-direction: column; }
+            .grid-container { gap: 15px; }
+            .status-bar { flex-direction: column; gap: 10px; align-items: center; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">
+            <a href="index.html"><img src="ute_logo.png" alt="HCMUTE Logo"></a>
+        </div>
+        <div class="user-info">
+            Xin chào, Admin
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button class="back-btn" onclick="goBack()">← Quay lại</button>
+            <button class="logout-btn" onclick="logout()">Đăng xuất</button>
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+        <!-- Thanh trạng thái trên cùng -->
+        <div class="status-bar">
+            <div class="status-item">PLC S7-1200: <span id="plcStatus" class="status-disconnected">DISCONNECTED</span></div>
+            <div class="status-item">STATUS: <span class="status-ready">READY</span></div>
+            <div class="status-item">TARGET SLOT: <span class="status-na">N/A</span></div>
+            <div class="status-item">Last Update: <span id="lastUpdate" style="background-color: #555; padding: 4px 10px; border-radius: 20px;">--:--:--</span></div>
+        </div>
+
+        <div class="main-content">
+            <!-- Khu vực điều khiển bên trái -->
+            <div class="control-panel">
+                <h3>Bảng Điều Khiển</h3>
+                
+                <div class="instruction">
+                    💡 <strong>Hướng dẫn:</strong> Chọn một ô (Slot) -> Quét thẻ RFID hoặc nhập mã UID -> Nhấn nút thao tác (Import/Export).
+                </div>
+
+                <div class="input-group">
+                    <label>Kết nối PLC S7-1200:</label>
+                    <button class="connect-btn disconnected" id="connectBtn">🔴 Kết nối PLC</button>
+                </div>
+
+                <div class="input-group">
+                    <label>Vị trí đang chọn (Slot):</label>
+                    <input type="text" id="selectedSlot" placeholder="Ví dụ: Slot 1" readonly style="background-color: #eee; cursor: not-allowed;">
+                </div>
+
+                <div class="input-group">
+                    <label>Mã sản phẩm (UID):</label>
+                    <input type="text" id="uidInput" placeholder="Scan or Type UID here...">
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-import" id="importBtn">📥 IMPORT</button>
+                    <button class="btn btn-export" id="exportBtn">📤 EXPORT</button>
+                </div>
+            </div>
+
+            <!-- Sơ đồ kho 3x3 bên phải -->
+            <div class="grid-panel">
+                <div class="grid-container">
+                    
+                    <!-- Hàng 1 -->
+                    <div class="slot-card occupied" data-slot="Slot 1">
+                        <div class="slot-number">Slot 1</div>
+                        <div class="status-text">UID: 102077844</div>
+                    </div>
+                    <div class="slot-card available" data-slot="Slot 2">
+                        <div class="slot-number">Slot 2</div>
+                        <div class="status-text">Available</div>
+                    </div>
+                    <div class="slot-card available" data-slot="Slot 3">
+                        <div class="slot-number">Slot 3</div>
+                        <div class="status-text">Available</div>
+                    </div>
+
+                    <!-- Hàng 2 -->
+                    <div class="slot-card available" data-slot="Slot 4">
+                        <div class="slot-number">Slot 4</div>
+                        <div class="status-text">Available</div>
+                    </div>
+                    <div class="slot-card occupied" data-slot="Slot 5">
+                        <div class="slot-number">Slot 5</div>
+                        <div class="status-text">UID: 102077844</div>
+                    </div>
+                    <div class="slot-card occupied" data-slot="Slot 6">
+                        <div class="slot-number">Slot 6</div>
+                        <div class="status-text">UID: 584197470</div>
+                    </div>
+
+                    <!-- Hàng 3 -->
+                    <div class="slot-card occupied" data-slot="Slot 7">
+                        <div class="slot-number">Slot 7</div>
+                        <div class="status-text">UID: 102077844</div>
+                    </div>
+                    <div class="slot-card occupied" data-slot="Slot 8">
+                        <div class="slot-number">Slot 8</div>
+                        <div class="status-text">UID: 102077844</div>
+                    </div>
+                    <div class="slot-card occupied" data-slot="Slot 9">
+                        <div class="slot-number">Slot 9</div>
+                        <div class="status-text">UID: 835991504</div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedSlot = null;
+        let isPlcConnected = false;
+        let plcCheckInterval = null;
+
+        const defaultSlotData = {
+            'Slot 1': { uid: '102077844', status: 'occupied' },
+            'Slot 2': { uid: null, status: 'available' },
+            'Slot 3': { uid: null, status: 'available' },
+            'Slot 4': { uid: null, status: 'available' },
+            'Slot 5': { uid: '102077844', status: 'occupied' },
+            'Slot 6': { uid: '584197470', status: 'occupied' },
+            'Slot 7': { uid: '102077844', status: 'occupied' },
+            'Slot 8': { uid: '102077844', status: 'occupied' },
+            'Slot 9': { uid: '835991504', status: 'occupied' }
+        };
+
+        let slotData = {};
+
+        // Hàm lưu dữ liệu vào localStorage
+        function saveSlotData() {
+            localStorage.setItem('warehouseSlotData', JSON.stringify(slotData));
+        }
+
+        // Hàm tải dữ liệu từ localStorage
+        function loadSlotData() {
+            const savedData = localStorage.getItem('warehouseSlotData');
+            if (savedData) {
+                try {
+                    slotData = JSON.parse(savedData);
+                } catch (e) {
+                    // Nếu dữ liệu không hợp lệ, sử dụng dữ liệu mặc định
+                    slotData = JSON.parse(JSON.stringify(defaultSlotData));
+                    saveSlotData();
+                }
+            } else {
+                // Nếu không có dữ liệu lưu trữ, sử dụng dữ liệu mặc định
+                slotData = JSON.parse(JSON.stringify(defaultSlotData));
+                saveSlotData();
+            }
+        }
+
+        function logout() {
+            // Xóa thông tin đăng nhập
+            localStorage.removeItem('isLoggedIn');
+            localStorage.removeItem('username');
+            // Chuyển về trang chủ
+            window.location.href = 'index.html';
+        }
+
+        function goBack() {
+            // Quay lại dashboard
+            window.location.href = 'dashboard.html';
+        }
+
+        // Kiểm tra xem đã đăng nhập chưa
+        if (!localStorage.getItem('isLoggedIn')) {
+            window.location.href = 'login.html';
+        }
+
+        // Tải dữ liệu khi script được thực thi
+        loadSlotData();
+
+        // Hàm kiểm tra kết nối PLC
+        function checkPlcConnection() {
+            // Mô phỏng kiểm tra kết nối PLC (trong thực tế sẽ gọi API/WebSocket)
+            updatePlcStatus();
+        }
+
+        // Hàm cập nhật trạng thái PLC
+        function updatePlcStatus() {
+            const plcStatusSpan = document.getElementById('plcStatus');
+            const connectBtn = document.getElementById('connectBtn');
+            const lastUpdateSpan = document.getElementById('lastUpdate');
+            
+            // Cập nhật thời gian
+            const now = new Date();
+            const time = now.toLocaleTimeString('vi-VN');
+            lastUpdateSpan.textContent = time;
+
+            if (isPlcConnected) {
+                plcStatusSpan.textContent = 'CONNECTED';
+                plcStatusSpan.className = 'status-connected';
+                connectBtn.textContent = '🟢 Ngắt kết nối PLC';
+                connectBtn.classList.remove('disconnected');
+                connectBtn.classList.add('connected');
+            } else {
+                plcStatusSpan.textContent = 'DISCONNECTED';
+                plcStatusSpan.className = 'status-disconnected';
+                connectBtn.textContent = '🔴 Kết nối PLC';
+                connectBtn.classList.remove('connected');
+                connectBtn.classList.add('disconnected');
+            }
+        }
+
+        // Xử lý sự kiện khi trang được tải
+        document.addEventListener('DOMContentLoaded', function() {
+            // Lấy tất cả các slot-card
+            const slotCards = document.querySelectorAll('.slot-card');
+            const selectedSlotInput = document.getElementById('selectedSlot');
+            const uidInput = document.getElementById('uidInput');
+            const importBtn = document.getElementById('importBtn');
+            const exportBtn = document.getElementById('exportBtn');
+            const connectBtn = document.getElementById('connectBtn');
+
+            // Xử lý sự kiện kết nối PLC
+            connectBtn.addEventListener('click', function() {
+                isPlcConnected = !isPlcConnected;
+                updatePlcStatus();
+                
+                if (isPlcConnected) {
+                    alert('✅ Kết nối PLC S7-1200 thành công!');
+                    // Bắt đầu kiểm tra kết nối liên tục
+                    if (!plcCheckInterval) {
+                        plcCheckInterval = setInterval(checkPlcConnection, 1000);
+                    }
+                } else {
+                    alert('⚠️ Đã ngắt kết nối PLC S7-1200!');
+                    // Dừng kiểm tra kết nối
+                    if (plcCheckInterval) {
+                        clearInterval(plcCheckInterval);
+                        plcCheckInterval = null;
+                    }
+                }
+            });
+
+            // Cập nhật giao diện từ dữ liệu đã lưu
+            slotCards.forEach(card => {
+                const slotName = card.getAttribute('data-slot');
+                updateSlotDisplay(slotName);
+            });
+
+            // Cập nhật trạng thái PLC lần đầu tiên
+            updatePlcStatus();
+
+            // Thêm sự kiện click cho mỗi slot
+            slotCards.forEach(card => {
+                card.addEventListener('click', function() {
+                    // Xóa class selected từ tất cả slot
+                    slotCards.forEach(c => c.classList.remove('selected'));
+                    
+                    // Thêm class selected cho slot được chọn
+                    this.classList.add('selected');
+                    
+                    // Cập nhật tên slot đã chọn
+                    selectedSlot = this.getAttribute('data-slot');
+                    selectedSlotInput.value = selectedSlot;
+                    
+                    // Xóa input UID khi chọn slot mới
+                    uidInput.value = '';
+                });
+            });
+
+            // Xử lý sự kiện IMPORT
+            importBtn.addEventListener('click', function() {
+                const uid = uidInput.value.trim();
+                
+                if (!selectedSlot) {
+                    alert('Vui lòng chọn một slot!');
+                    return;
+                }
+
+                // Kiểm tra kết nối PLC
+                if (!isPlcConnected) {
+                    alert('⚠️ Vui lòng kết nối PLC trước!');
+                    return;
+                }
+                
+                if (!uid) {
+                    alert('Vui lòng nhập mã UID!');
+                    return;
+                }
+                
+                // Cập nhật dữ liệu
+                slotData[selectedSlot].uid = uid;
+                slotData[selectedSlot].status = 'occupied';
+                
+                // Lưu dữ liệu vào localStorage
+                saveSlotData();
+                
+                // Cập nhật giao diện
+                updateSlotDisplay(selectedSlot);
+                
+                alert(`✅ IMPORT thành công!\nSlot: ${selectedSlot}\nUID: ${uid}`);
+                
+                // Xóa input
+                uidInput.value = '';
+            });
+
+            // Xử lý sự kiện EXPORT
+            exportBtn.addEventListener('click', function() {
+                if (!selectedSlot) {
+                    alert('Vui lòng chọn một slot!');
+                    return;
+                }
+
+                // Kiểm tra kết nối PLC
+                if (!isPlcConnected) {
+                    alert('⚠️ Vui lòng kết nối PLC trước!');
+                    return;
+                }
+                
+                const currentData = slotData[selectedSlot];
+                
+                if (currentData.status === 'available') {
+                    alert('⚠️ Slot này đang trống, không có gì để EXPORT!');
+                    return;
+                }
+                
+                const uid = currentData.uid;
+                
+                // Cập nhật dữ liệu
+                slotData[selectedSlot].uid = null;
+                slotData[selectedSlot].status = 'available';
+                
+                // Lưu dữ liệu vào localStorage
+                saveSlotData();
+                
+                // Cập nhật giao diện
+                updateSlotDisplay(selectedSlot);
+                
+                alert(`✅ EXPORT thành công!\nSlot: ${selectedSlot}\nUID đã lấy: ${uid}`);
+                
+                // Xóa input
+                uidInput.value = '';
+            });
+
+            // Hàm cập nhật giao diện slot
+            function updateSlotDisplay(slotName) {
+                const slotCard = document.querySelector(`[data-slot="${slotName}"]`);
+                if (!slotCard) return;
+                
+                const data = slotData[slotName];
+                const statusText = slotCard.querySelector('.status-text');
+                
+                if (data.status === 'available') {
+                    slotCard.classList.remove('occupied');
+                    slotCard.classList.add('available');
+                    statusText.textContent = 'Available';
+                } else {
+                    slotCard.classList.remove('available');
+                    slotCard.classList.add('occupied');
+                    statusText.textContent = `UID: ${data.uid}`;
+                }
+            }
+        });
+    </script>
+</body>
+</html>
