@@ -399,7 +399,42 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/mqtt@5.3.4/dist/mqtt.min.js" crossorigin="anonymous"></script>
     <script>
+        // ========== MQTT CONFIGURATION FOR RASPBERRY PI ==========
+        const MQTT_BROKER = 'wss://5031841c1f8d4218bafa640220641d55.s1.eu.hivemq.cloud:8884/mqtt';
+        const MQTT_USERNAME = 'lhuy04';
+        const MQTT_PASSWORD = 'Hcmute2026';
+        const MQTT_PORT = 8884;
+        const MQTT_PROTOCOL = 'wss';
+        const MQTT_CLIENT_ID = 'web_client_' + Math.random().toString(16).substr(2, 8);
+        
+        // MQTT Topics
+        const MQTT_TOPICS = {
+            command:        'warehouse/command',        // Gửi lệnh tới Raspberry Pi
+            status:         'warehouse/status',         // Nhận trạng thái từ Pi
+            history:        'warehouse/history',        // Nhận lịch sử hoạt động
+            history_init:   'warehouse/history_init',   // Nhận dữ liệu lịch sử ban đầu
+            robot_state:    'warehouse/robot_state',    // Nhận trạng thái robot
+            ack:            'warehouse/ack',            // Xác nhận hoàn thành
+            error:          'warehouse/error'           // Thông báo lỗi
+        };
+        
+        // MQTT Client connection options
+        const MQTT_OPTIONS = {
+            username: MQTT_USERNAME,
+            password: MQTT_PASSWORD,
+            protocol: MQTT_PROTOCOL,
+            port: MQTT_PORT,
+            clientId: MQTT_CLIENT_ID,
+            clean: true,
+            connectTimeout: 4000,
+            reconnectPeriod: 4000
+        };
+        
+        let mqttClient = null;
+        // ========== END MQTT CONFIGURATION ==========
+
         let selectedSlot = null;
         let isPlcConnected = false;
         let plcCheckInterval = null;
@@ -462,6 +497,86 @@
         // Tải dữ liệu khi script được thực thi
         loadSlotData();
 
+        // ========== MQTT CONNECTION FUNCTIONS ==========
+        // Hàm kết nối tới MQTT Broker và Raspberry Pi
+        function connectToMqtt() {
+            if (typeof mqtt === 'undefined') {
+                console.error('MQTT library not loaded!');
+                alert('Lỗi: Không tải được thư viện MQTT!');
+                return;
+            }
+            
+            mqttClient = mqtt.connect(MQTT_BROKER, MQTT_OPTIONS);
+            
+            mqttClient.on('connect', function() {
+                console.log('✅ Đã kết nối MQTT');
+                
+                // Subscribe tới các topics
+                Object.values(MQTT_TOPICS).forEach(topic => {
+                    mqttClient.subscribe(topic, function(err) {
+                        if (err) {
+                            console.error('Lỗi subscribe topic ' + topic + ':', err);
+                        } else {
+                            console.log('Đã subscribe: ' + topic);
+                        }
+                    });
+                });
+            });
+            
+            mqttClient.on('message', function(topic, message) {
+                const msg = message.toString();
+                console.log(`📨 Nhận từ [${topic}]: ${msg}`);
+                
+                try {
+                    let data = JSON.parse(msg);
+                    handleMqttMessage(topic, data);
+                } catch(e) {
+                    handleMqttMessage(topic, msg);
+                }
+            });
+            
+            mqttClient.on('error', function(err) {
+                console.error('❌ Lỗi MQTT:', err);
+                alert('Lỗi kết nối MQTT: ' + err.message);
+            });
+            
+            mqttClient.on('close', function() {
+                console.log('⚠️ Đã ngắt kết nối MQTT');
+            });
+        }
+        
+        // Hàm xử lý tin nhắn MQTT nhận được
+        function handleMqttMessage(topic, data) {
+            if (topic === MQTT_TOPICS.status) {
+                console.log('Trạng thái kho:', data);
+                // Cập nhật giao diện dựa trên dữ liệu từ Pi
+            } else if (topic === MQTT_TOPICS.robot_state) {
+                console.log('Trạng thái robot:', data);
+            } else if (topic === MQTT_TOPICS.ack) {
+                console.log('Xác nhận:', data);
+                alert('✅ ' + data);
+            } else if (topic === MQTT_TOPICS.error) {
+                console.error('Lỗi từ Pi:', data);
+                alert('❌ Lỗi: ' + data);
+            } else if (topic === MQTT_TOPICS.history) {
+                console.log('Lịch sử:', data);
+            }
+        }
+        
+        // Hàm gửi lệnh tới Raspberry Pi
+        function sendCommandToRaspberry(command) {
+            if (!mqttClient || !mqttClient.connected) {
+                console.error('MQTT chưa kết nối!');
+                alert('⚠️ Chưa kết nối MQTT! Vui lòng kết nối PLC trước.');
+                return;
+            }
+            
+            const payload = JSON.stringify(command);
+            mqttClient.publish(MQTT_TOPICS.command, payload);
+            console.log('📤 Gửi lệnh:', command);
+        }
+        // ========== END MQTT FUNCTIONS ==========
+        
         // Hàm kiểm tra kết nối PLC
         function checkPlcConnection() {
             // Mô phỏng kiểm tra kết nối PLC (trong thực tế sẽ gọi API/WebSocket)
@@ -510,12 +625,19 @@
                 updatePlcStatus();
                 
                 if (isPlcConnected) {
+                    // Kết nối tới Raspberry Pi thông qua MQTT
+                    connectToMqtt();
                     alert('✅ Kết nối PLC S7-1200 thành công!');
                     // Bắt đầu kiểm tra kết nối liên tục
                     if (!plcCheckInterval) {
                         plcCheckInterval = setInterval(checkPlcConnection, 1000);
                     }
                 } else {
+                    // Ngắt kết nối MQTT
+                    if (mqttClient) {
+                        mqttClient.end();
+                        mqttClient = null;
+                    }
                     alert('⚠️ Đã ngắt kết nối PLC S7-1200!');
                     // Dừng kiểm tra kết nối
                     if (plcCheckInterval) {
@@ -561,7 +683,7 @@
                     return;
                 }
 
-                // Kiểm tra kết nối PLC
+                // Kiểm tra kết nối PLC/MQTT
                 if (!isPlcConnected) {
                     alert('⚠️ Vui lòng kết nối PLC trước!');
                     return;
@@ -572,7 +694,16 @@
                     return;
                 }
                 
-                // Cập nhật dữ liệu
+                // Gửi lệnh IMPORT tới Raspberry Pi
+                const slotNumber = parseInt(selectedSlot.replace('Slot ', ''));
+                const command = {
+                    action: 'IMPORT',
+                    slot_id: slotNumber,
+                    uid: uid
+                };
+                sendCommandToRaspberry(command);
+                
+                // Cập nhật dữ liệu cục bộ
                 slotData[selectedSlot].uid = uid;
                 slotData[selectedSlot].status = 'occupied';
                 
@@ -595,7 +726,7 @@
                     return;
                 }
 
-                // Kiểm tra kết nối PLC
+                // Kiểm tra kết nối PLC/MQTT
                 if (!isPlcConnected) {
                     alert('⚠️ Vui lòng kết nối PLC trước!');
                     return;
@@ -610,7 +741,16 @@
                 
                 const uid = currentData.uid;
                 
-                // Cập nhật dữ liệu
+                // Gửi lệnh EXPORT tới Raspberry Pi
+                const slotNumber = parseInt(selectedSlot.replace('Slot ', ''));
+                const command = {
+                    action: 'EXPORT',
+                    slot_id: slotNumber,
+                    uid: uid
+                };
+                sendCommandToRaspberry(command);
+                
+                // Cập nhật dữ liệu cục bộ
                 slotData[selectedSlot].uid = null;
                 slotData[selectedSlot].status = 'available';
                 
