@@ -377,14 +377,20 @@ if not os.path.exists(DB_PATH): save_json(DB_PATH, default_db)
 print("--- KHỞI ĐỘNG HỆ THỐNG AS/RS (9 Ô) ---")
 threading.Thread(target=monitor_logic, daemon=True).start()
 
-client.on_disconnect = lambda c, u, rc, p=None: print(f"[{datetime.now().strftime('%H:%M:%S')}] MQTT ngắt kết nối (rc={rc}), đang reconnect...")
-client.on_connect   = lambda c, u, f, rc, p=None: print(f"[{datetime.now().strftime('%H:%M:%S')}] MQTT kết nối thành công!")
+def _on_connect(c, u, flags, rc, p=None):
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] MQTT ket noi thanh cong!")
+    c.subscribe("warehouse/command")
+
+def _on_disconnect(c, u, flags, rc, p=None):
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] MQTT ngat ket noi (rc={rc}), dang reconnect...")
+
+client.on_connect    = _on_connect
+client.on_disconnect = _on_disconnect
 client.reconnect_delay_set(min_delay=2, max_delay=30)
 client.tls_set(cert_reqs=ssl.CERT_REQUIRED)
 client.username_pw_set("lhuy04", "Hcmute2026")
 client.on_message = on_message
 client.connect("5031841c1f8d4218bafa640220641d55.s1.eu.hivemq.cloud", 8883)
-client.subscribe("warehouse/command")
 
 try:
     client.loop_forever()
