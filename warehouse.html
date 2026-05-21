@@ -35,7 +35,6 @@
         .btn { padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; color: white; transition: 0.2s; text-align: center; font-size: 14px; }
         .btn:hover:not(:disabled) { opacity: 0.9; transform: translateY(-2px); }
         .btn:disabled { background-color: #ddd !important; color: #999 !important; cursor: not-allowed; transform: none !important; }
-        .connect-btn { width: 100%; font-size: 15px; }
         .action-buttons { display: flex; gap: 15px; }
         .action-buttons .btn { flex: 1; padding: 14px; font-size: 15px; }
 
@@ -134,15 +133,6 @@
             <div class="control-panel">
                 <h3>🤖 Điều Khiển Tự Động</h3>
 
-                <div class="instruction">
-                    📥 <strong>IMPORT:</strong> Nhấn nút → Pi tự chọn ô gần nhất → Quét thẻ RFID (hoặc nhập UID).<br>
-                    📤 <strong>EXPORT:</strong> Click vào ô cần xuất trên bản đồ → Nhấn EXPORT.
-                </div>
-
-                <div class="input-group">
-                    <label>Kết nối PLC S7-1200:</label>
-                    <button class="btn connect-btn bg-red" id="connectBtn" onclick="togglePlc()">🔴 Kết nối PLC</button>
-                </div>
 
                 <!-- HỘP TRẠNG THÁI HỆ THỐNG -->
                 <div class="sys-status-box" id="sysStatusBox">
@@ -152,7 +142,7 @@
                 </div>
 
                 <div class="input-group">
-                    <label>Thông tin sản phẩm (để trống = đọc RFID tự động):</label>
+                    <label>Thông tin sản phẩm (nếu có):</label>
                     <input type="text" id="uidInput" placeholder="Nhập thông tin sản phẩm hoặc để trống...">
                 </div>
 
@@ -178,7 +168,7 @@
         authGuard();
 
         // ── STATE ──────────────────────────────────────────────────────────────
-        let isPlcConnected = localStorage.getItem('plcConnected') === 'true';
+        let isPlcConnected = true;
         let isSystemBusy   = false;
         let activeSlot     = null;   // slot đang được Pi vận hành
         let selectedSlotId = null;   // slot user đang chọn để EXPORT
@@ -204,7 +194,7 @@
                 const isAvail = d.status === 'available';
                 const isActive = (activeSlot === i);
                 let cardClass = isActive ? 'active' : d.status;
-                let statusText = isActive ? '⚙️ Đang xử lý...' : (isAvail ? 'Trống' : 'UID: ' + escapeHtml(d.uid));
+                let statusText = isActive ? '⚙️ Đang xử lý...' : (isAvail ? 'Trống' : escapeHtml(d.item || d.uid || ''));
                 container.innerHTML += `
                     <div class="slot-card ${cardClass}" id="slotCard-${i}" onclick="selectSlot(${i})">
                         <div class="slot-number">Slot ${i}</div>
@@ -234,8 +224,9 @@
             for (let i = 1; i <= 9; i++) {
                 const info = piDb[`slot_${i}`] || { status: 'Available' };
                 slotData[i] = {
-                    uid:    info.status === 'Occupied' ? info.uid : null,
-                    status: info.status === 'Occupied' ? 'occupied' : 'available'
+                    uid:      info.status === 'Occupied' ? info.uid       : null,
+                    item:     info.status === 'Occupied' ? (info.item_name || info.uid) : null,
+                    status:   info.status === 'Occupied' ? 'occupied' : 'available'
                 };
             }
             localStorage.setItem('warehouseDataV2', JSON.stringify(slotData));
@@ -262,7 +253,7 @@
 
         function updateStatusBar() {
             const badge = document.getElementById('statusBadge');
-            badge.textContent  = isSystemBusy ? 'BUSY' : 'IDLE';
+            badge.textContent  = isSystemBusy ? 'ĐANG CHẠY' : 'SẴN SÀNG';
             badge.className    = isSystemBusy ? 'bg-orange' : 'bg-green';
             const tBadge = document.getElementById('targetSlotBadge');
             tBadge.textContent = activeSlot ? `Slot ${activeSlot}` : 'N/A';
@@ -288,7 +279,18 @@
 
             activeSlot     = (state !== 'IDLE') ? slot : null;
             isSystemBusy   = (state !== 'IDLE');
-            if (state === 'IDLE') currentAction = null;
+            if (state === 'IDLE') {
+                currentAction = null;
+                // Nếu còn _imp nhưng Pi đã về IDLE → operation xong trước khi reload, không có ACK
+                const pendingKey = sessionStorage.getItem('_imp') ? '_imp' : sessionStorage.getItem('_exp') ? '_exp' : null;
+                if (pendingKey) {
+                    sessionStorage.removeItem(pendingKey);
+                    if (Swal.isVisible()) {
+                        Swal.hideLoading();
+                        Swal.update({ title: 'Thao tac hoan tat!', html: 'Kiem tra lai grid de xac nhan.', showConfirmButton: true, confirmButtonText: 'OK' });
+                    }
+                }
+            }
 
             const sub = slot ? `Slot ${slot}` : '';
             setStatusDisplay(state, sub);
@@ -313,6 +315,8 @@
                 if (mqttClient && mqttClient.connected) {
                     mqttClient.publish('warehouse/command', JSON.stringify({ action: 'EMERGENCY_RESET' }));
                 }
+                sessionStorage.removeItem('_imp');
+                sessionStorage.removeItem('_exp');
                 isSystemBusy  = false;
                 activeSlot    = null;
                 currentAction = null;
@@ -320,7 +324,7 @@
                 updateStatusBar();
                 updateButtons();
                 initGrid();
-                Swal.fire({ title: 'Đã hủy!', text: 'Lệnh reset đã được gửi tới Pi.', icon: 'info', timer: 2500, showConfirmButton: false });
+                Swal.fire({ title: 'Da huy!', text: 'Lenh reset da duoc gui toi Pi.', icon: 'info', timer: 2500, showConfirmButton: false });
             });
         }
 
@@ -341,7 +345,7 @@
             if (typeof data === 'object' && data.slot) {
                 const sid = parseInt(data.slot);
                 if (action === 'IMPORT' && data.uid) {
-                    slotData[sid] = { uid: data.uid, status: 'occupied' };
+                    slotData[sid] = { uid: data.uid, item: data.item || data.uid || '', status: 'occupied' };
                 } else if (action === 'EXPORT') {
                     slotData[sid] = { uid: null, status: 'available' };
                 }
@@ -351,18 +355,43 @@
             document.getElementById('uidInput').value = '';
             selectedSlotId = null;
 
-            if (action === 'IMPORT' && Swal.isVisible()) {
-                Swal.hideLoading();
-                Swal.update({
-                    title: 'Da nhan hang xong!',
-                    html:  `<span style="font-size:40px">✅</span><br><b>${msg}</b>`,
-                    showConfirmButton: false,
-                });
-                setTimeout(() => Swal.close(), 3000);
+            if (action === 'IMPORT' || action === 'EXPORT') {
+                const key   = action === 'IMPORT' ? '_imp' : '_exp';
+                const title = action === 'IMPORT' ? 'Da nhan hang xong!' : 'Da xuat hang xong!';
+                sessionStorage.removeItem(key);
+                if (Swal.isVisible()) {
+                    Swal.hideLoading();
+                    Swal.update({ title, html: `<span style="font-size:40px">✅</span><br><b>${msg}</b>`, showConfirmButton: false });
+                    setTimeout(() => Swal.close(), 3000);
+                } else {
+                    Swal.fire({ title, text: msg, icon: 'success', timer: 3000, showConfirmButton: false });
+                }
             } else {
                 Swal.fire({ title: action ? `${action} thanh cong!` : 'Hoan thanh!',
                             text: msg, icon: 'success', timer: 3000, showConfirmButton: false });
             }
+        }
+
+        function showImportDialog() {
+            Swal.fire({
+                title: 'Đang nhập hàng...',
+                html:  'Chờ quét thẻ RFID và robot vận chuyển.<br><small style="color:#aaa">Hộp thoại tự đóng sau khi PLC xác nhận xong.</small>',
+                allowOutsideClick: false,
+                allowEscapeKey:    false,
+                showConfirmButton: false,
+                didOpen: () => Swal.showLoading()
+            });
+        }
+
+        function showExportDialog(slotLabel) {
+            Swal.fire({
+                title: 'Đang xuất hàng...',
+                html:  `Robot đang di chuyển đến <b>${slotLabel || '...'}</b>.<br><small style="color:#aaa">Hộp thoại tự đóng sau khi PLC xác nhận xong.</small>`,
+                allowOutsideClick: false,
+                allowEscapeKey:    false,
+                showConfirmButton: false,
+                didOpen: () => Swal.showLoading()
+            });
         }
 
         // ── PROCESS ACTION (AUTO MODE) ─────────────────────────────────────────
@@ -378,7 +407,7 @@
             }
 
             // Gửi lệnh lên Pi — Pi tự quyết định slot cho IMPORT
-            const cmd = { action: actionType, uid: uid };
+            const cmd = { action: actionType, uid: uid, item: uid };
             if (actionType === 'EXPORT' && selectedSlotId) {
                 cmd.slot_id = selectedSlotId;
             }
@@ -395,38 +424,18 @@
             }
 
             if (actionType === 'IMPORT') {
-                Swal.fire({
-                    title: 'Đang nhập hàng...',
-                    html:  'Chờ quét thẻ RFID và robot vận chuyển.<br><small style="color:#aaa">Hộp thoại tự đóng sau khi PLC xác nhận xong.</small>',
-                    allowOutsideClick: false,
-                    allowEscapeKey:    false,
-                    showConfirmButton: false,
-                    didOpen: () => Swal.showLoading()
-                });
+                sessionStorage.setItem('_imp', '1');
+                showImportDialog();
+            } else if (actionType === 'EXPORT') {
+                const label = selectedSlotId ? `Slot ${selectedSlotId}` : (uid ? uid : '...');
+                sessionStorage.setItem('_exp', label);
+                showExportDialog(label);
             }
         }
 
         // ── PLC / MQTT ─────────────────────────────────────────────────────────
-        function togglePlc() {
-            if (!isPlcConnected) {
-                isPlcConnected = true;
-                localStorage.setItem('plcConnected', 'true');
-                connectMQTT();
-                timeInterval = setInterval(() => {
-                    document.getElementById('lastUpdate').innerText = new Date().toLocaleTimeString('vi-VN');
-                }, 1000);
-                Swal.fire({ title: 'Đang kết nối...', text: 'PLC S7-1200 đang khởi tạo.', icon: 'info', timer: 2000, showConfirmButton: false });
-            } else {
-                Swal.fire('Thông báo', 'Vui lòng Logout để ngắt kết nối an toàn.', 'info');
-            }
-            updatePlcUI();
-        }
-
         function updatePlcUI() {
-            const btn   = document.getElementById('connectBtn');
             const badge = document.getElementById('plcBadge');
-            btn.className  = `btn connect-btn ${isPlcConnected ? 'bg-green' : 'bg-red'}`;
-            btn.innerHTML  = isPlcConnected ? '🟢 PLC Đang Kết Nối' : '🔴 Kết nối PLC';
             badge.className = isPlcConnected ? 'bg-green' : 'bg-red';
             badge.innerText = isPlcConnected ? 'CONNECTED' : 'DISCONNECTED';
             if (isPlcConnected) setStatusDisplay('IDLE');
@@ -452,6 +461,8 @@
                 if (t === 'warehouse/slot_data')   syncGridFromPi(data);
                 if (t === 'warehouse/error') {
                     const msg = typeof data === 'string' ? data : (data.message || JSON.stringify(data));
+                    sessionStorage.removeItem('_imp');
+                    sessionStorage.removeItem('_exp');
                     isSystemBusy  = false;
                     activeSlot    = null;
                     currentAction = null;
@@ -474,13 +485,26 @@
         window.onload = () => {
             initGrid();
             updatePlcUI();
-            if (!isPlcConnected) setStatusDisplay('DISCONNECTED');
-            if (isPlcConnected) {
-                connectMQTT();
-                timeInterval = setInterval(() => {
-                    document.getElementById('lastUpdate').innerText = new Date().toLocaleTimeString('vi-VN');
-                }, 1000);
+            // Khôi phục dialog nếu page reload trong lúc đang IMPORT / EXPORT
+            if (sessionStorage.getItem('_imp')) {
+                isSystemBusy  = true;
+                currentAction = 'IMPORT';
+                setStatusDisplay('MOVING');
+                updateStatusBar();
+                updateButtons();
+                showImportDialog();
+            } else if (sessionStorage.getItem('_exp')) {
+                isSystemBusy  = true;
+                currentAction = 'EXPORT';
+                setStatusDisplay('MOVING');
+                updateStatusBar();
+                updateButtons();
+                showExportDialog(sessionStorage.getItem('_exp'));
             }
+            connectMQTT();
+            timeInterval = setInterval(() => {
+                document.getElementById('lastUpdate').innerText = new Date().toLocaleTimeString('vi-VN');
+            }, 1000);
         };
     </script>
 </body>

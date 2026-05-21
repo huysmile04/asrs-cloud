@@ -49,6 +49,9 @@
         .info-item { display: grid; grid-template-columns: max-content minmax(120px, 1fr); align-items: center; gap: 12px; padding: 16px 18px; border-radius: 16px; background: #f8fafc; min-height: 56px; }
         .info-item strong { color: #0f172a; font-size: 14px; letter-spacing: 0.01em; line-height: 1.4; white-space: nowrap; }
         .info-item span { color: #334155; font-size: 14px; text-align: right; line-height: 1.5; justify-self: end; }
+        .plc-btn { width: 100%; padding: 14px; border: none; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: default; color: #fff; transition: background 0.3s; }
+        .plc-btn.connected    { background: #16a34a; }
+        .plc-btn.disconnected { background: #dc2626; }
 
         .table-panel { display: flex; flex-direction: column; gap: 20px; }
         .table-card { background: #ffffff; border-radius: 22px; box-shadow: 0 14px 35px rgba(15, 23, 42, 0.05); overflow: hidden; }
@@ -150,17 +153,9 @@
                             <strong>Broker MQTT</strong>
                             <span>HiveMQ Cloud</span>
                         </div>
-                        <div class="info-item">
-                            <strong>Topic hoạt động</strong>
-                            <span>warehouse/history</span>
-                        </div>
-                        <div class="info-item">
-                            <strong>Topic lịch sử</strong>
-                            <span>warehouse/history_init</span>
-                        </div>
-                        <div class="info-item">
-                            <strong>Xuất file</strong>
-                            <span>XLSX realtime</span>
+                        <div class="info-item" style="display:block; padding: 0; background: none;">
+                            <strong style="display:block; margin-bottom: 8px; font-size:13px; color:#475569;">Kết nối PLC S7-1200</strong>
+                            <button id="plcBtn" class="plc-btn disconnected">🔴 PLC Chưa Kết Nối</button>
                         </div>
                     </div>
                 </div>
@@ -215,7 +210,7 @@
                 document.getElementById('statusPill').className = 'status-pill connected';
                 document.getElementById('statusPill').innerText = 'Đã kết nối';
 
-                client.subscribe(['warehouse/history', 'warehouse/history_init', 'warehouse/error'], function(err) {
+                client.subscribe(['warehouse/history', 'warehouse/history_init', 'warehouse/error', 'warehouse/status'], function(err) {
                     if (!err) {
                         setTimeout(() => {
                             client.publish('warehouse/command', JSON.stringify({action: "GET_HISTORY"}));
@@ -270,6 +265,16 @@
                     updateStats();
                 }
 
+                if (t === 'warehouse/status' && d && typeof d === 'object') {
+                    const btn = document.getElementById('plcBtn');
+                    if (d.plc === 'connected') {
+                        btn.className = 'plc-btn connected';
+                        btn.textContent = '🟢 PLC Đang Kết Nối';
+                    } else {
+                        btn.className = 'plc-btn disconnected';
+                        btn.textContent = '🔴 PLC Chưa Kết Nối';
+                    }
+                }
                 if (t === 'warehouse/error') {
                     Swal.fire('Lỗi từ thiết bị', String(d), 'error');
                 }

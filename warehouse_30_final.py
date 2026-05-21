@@ -35,6 +35,7 @@ sys_state = {
     "pending_action": None,
     "pending_slot":   None,
     "pending_uid":    None,
+    "pending_item":   None,
 }
 
 # ── JSON ──────────────────────────────────────────────────────────────────────
@@ -53,7 +54,7 @@ def save_json(path, data):
 
 def log_event(sid, act, item, uid):
     hist = load_json(HIST_PATH, [])
-    entry = {"time": datetime.now().strftime("%H:%M:%S"), "slot": str(sid),
+    entry = {"time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "slot": str(sid),
              "act": act, "item": item, "uid": uid}
     hist.append(entry)
     save_json(HIST_PATH, hist[-100:])
@@ -150,16 +151,17 @@ def monitor_logic():
                     p_action = sys_state.pop("pending_action", None)
                     p_slot   = sys_state.pop("pending_slot",   None)
                     p_uid    = sys_state.pop("pending_uid",    None)
+                    p_item   = sys_state.pop("pending_item",   None)
                     if p_action:
                         client.publish("warehouse/ack", json.dumps({
-                            "action": p_action, "slot": p_slot, "uid": p_uid
+                            "action": p_action, "slot": p_slot, "uid": p_uid, "item": p_item
                         }))
 
                     db = load_json(DB_PATH, {})
                     client.publish("warehouse/slot_data", json.dumps(db), retain=True)
                     client.publish("warehouse/robot_state", json.dumps({
                         "state": "IDLE", "slot": "N/A", "message": "Ready"
-                    }))
+                    }), retain=True)
             except:
                 pass
 
@@ -179,7 +181,7 @@ def find_nearest_slot(db):
             return i
     return None
 
-def handle_import(uid_from_web=""):
+def handle_import(uid_from_web="", item_from_web=""):
     if sys_state["is_busy"]:
         client.publish("warehouse/error", "System busy"); return
 
@@ -190,7 +192,7 @@ def handle_import(uid_from_web=""):
 
     client.publish("warehouse/robot_state", json.dumps({
         "state": "WAITING_RFID", "slot": str(slot_id), "message": ""
-    }))
+    }), retain=True)
 
     uid_str = str(uid_from_web).strip()
     if uid_str and uid_str != "N/A":
@@ -199,9 +201,11 @@ def handle_import(uid_from_web=""):
         rfid_id, _ = reader.read()
         tag_uid    = str(rfid_id)
 
+    item_name = str(item_from_web).strip() or "Linh kien"
+
     client.publish("warehouse/robot_state", json.dumps({
         "state": "MOVING", "slot": str(slot_id), "message": ""
-    }))
+    }), retain=True)
 
     plc_start(slot_id)
     publish_device_status()
@@ -209,15 +213,16 @@ def handle_import(uid_from_web=""):
 
     db[f"slot_{slot_id}"] = {
         "id": slot_id, "status": "Occupied", "uid": tag_uid,
-        "item_name": "Linh kien", "time": datetime.now().strftime("%H:%M:%S")
+        "item_name": item_name, "time": datetime.now().strftime("%H:%M:%S")
     }
     save_json(DB_PATH, db)
     client.publish("warehouse/slot_data", json.dumps(db), retain=True)
-    log_event(slot_id, "IMPORT", "Linh kien", tag_uid)
+    log_event(slot_id, "IMPORT", item_name, tag_uid)
 
     sys_state["pending_action"] = "IMPORT"
     sys_state["pending_slot"]   = slot_id
     sys_state["pending_uid"]    = tag_uid
+    sys_state["pending_item"]   = item_name
 
 def handle_export(slot_id_direct=None, uid_search=""):
     if sys_state["is_busy"]:
@@ -249,7 +254,7 @@ def handle_export(slot_id_direct=None, uid_search=""):
 
     client.publish("warehouse/robot_state", json.dumps({
         "state": "MOVING", "slot": str(slot_id), "message": ""
-    }))
+    }), retain=True)
 
     plc_start(slot_id)
     publish_device_status()
@@ -277,13 +282,16 @@ def on_message(client, userdata, msg):
             write_plc_slot(-1)
             sys_state.update({"is_busy": False, "current_slot": "N/A",
                                "pending_action": None, "pending_slot": None, "pending_uid": None})
-            client.publish("warehouse/robot_state", json.dumps({"state": "IDLE", "slot": "N/A", "message": "RESET"}))
+            client.publish("warehouse/robot_state", json.dumps({"state": "IDLE", "slot": "N/A", "message": "RESET"}), retain=True)
             client.publish("warehouse/ack", json.dumps({"action": "RESET"}))
             publish_device_status()
             publish_motor_data()
 
         elif act == "IMPORT":
-            threading.Thread(target=handle_import, args=(cmd.get("uid", ""),), daemon=True).start()
+            threading.Thread(target=handle_import, kwargs={
+                "uid_from_web":  str(cmd.get("uid")  or "").strip(),
+                "item_from_web": str(cmd.get("item") or "").strip()
+            }, daemon=True).start()
 
         elif act == "EXPORT":
             threading.Thread(target=handle_export, kwargs={
