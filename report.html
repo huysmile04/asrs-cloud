@@ -512,11 +512,11 @@
         let filtered = [...allReportData];
 
         if (startDate || endDate) {
+            const today = new Date().toISOString().split('T')[0];
             filtered = filtered.filter(d => {
                 const t = String(d.time || d.timestamp || '');
-                // lấy phần ngày: "YYYY-MM-DD HH:MM:SS" → "YYYY-MM-DD", cũ "HH:MM:SS" → bỏ qua
-                const datePart = t.includes(' ') ? t.split(' ')[0] : '';
-                if (!datePart) return false;
+                // dữ liệu cũ "HH:MM:SS" không có ngày → gán hôm nay
+                const datePart = t.includes(' ') ? t.split(' ')[0] : today;
                 if (startDate && datePart < startDate) return false;
                 if (endDate   && datePart > endDate)   return false;
                 return true;
@@ -526,7 +526,7 @@
             filtered = filtered.filter(d => (d.act || d.action || '').toUpperCase() === actionFilter.toUpperCase());
         }
         renderTable(filtered);
-        Swal.fire({ title: 'Da loc', text: 'Hien thi ' + filtered.length + ' ket qua', icon: 'success', timer: 1500, showConfirmButton: false });
+        Swal.fire({ title: 'Đã lọc', text: 'Hiển thị ' + filtered.length + ' kết quả', icon: 'success', timer: 1500, showConfirmButton: false });
     }
 
     function exportToExcel() {
