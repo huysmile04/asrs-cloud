@@ -15,7 +15,20 @@ function getClientId(prefix = 'web') {
 }
 
 function authGuard() {
-    if (!localStorage.getItem('isLoggedIn')) location.href = 'login.html';
+    const token  = sessionStorage.getItem('_at');
+    const expiry = parseInt(sessionStorage.getItem('_ae') || '0');
+    if (!token || Date.now() > expiry) {
+        sessionStorage.clear();
+        localStorage.removeItem('isLoggedIn');
+        location.href = 'login.html';
+    }
+}
+
+function doLogout() {
+    sessionStorage.clear();
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('plcConnected');
+    location.href = 'index.html';
 }
 
 const _escMap = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;' };

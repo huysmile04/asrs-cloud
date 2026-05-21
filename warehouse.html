@@ -149,7 +149,7 @@
 
         let slotData = JSON.parse(localStorage.getItem('warehouseDataV2')) || defaultData;
 
-        if (!localStorage.getItem('isLoggedIn')) location.href = 'login.html';
+        authGuard();
 
         // 2. KHỞI TẠO GIAO DIỆN
         function initGrid() {
@@ -243,9 +243,7 @@
 
         function logout() {
             if (mqttClient) mqttClient.end(true);
-            localStorage.removeItem('isLoggedIn');
-            localStorage.removeItem('plcConnected');
-            location.href = 'index.html';
+            doLogout();
         }
 
         function connectMQTT() {

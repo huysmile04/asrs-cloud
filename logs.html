@@ -324,6 +324,7 @@
         }
 
         window.addEventListener('beforeunload', () => { if (client && client.connected) client.end(true); });
+        authGuard();
         window.onload = connect;
     </script>
 </body>

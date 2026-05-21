@@ -134,22 +134,26 @@
     </div>
 
     <script>
-        document.querySelector('.login-form').addEventListener('submit', function(e) {
+        const _CREDS = { admin: '7ab5411a9ad9aaa0edd9379b98aa792dad7cdfa0b45427c9fca10a6fe418d53f' };
+        const _SALT  = 'HCMUTE-ASRS-2026';
+
+        async function _h(pw) {
+            const data = new TextEncoder().encode(_SALT + pw);
+            const buf  = await crypto.subtle.digest('SHA-256', data);
+            return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        document.querySelector('.login-form').addEventListener('submit', async function(e) {
             e.preventDefault();
-            
-            const username = document.querySelector('input[name="username"]').value;
+            const username = document.querySelector('input[name="username"]').value.trim();
             const password = document.querySelector('input[name="password"]').value;
-            
-            // Kiểm tra thông tin đăng nhập (có thể thay đổi theo nhu cầu)
-            if (username === 'admin' && password === 'hcmute2026') {
-                // Lưu trạng thái đăng nhập
+            if (_CREDS[username] && await _h(password) === _CREDS[username]) {
+                const token = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36);
+                sessionStorage.setItem('_at', token);
+                sessionStorage.setItem('_ae', (Date.now() + 8 * 3600000).toString());
                 localStorage.setItem('isLoggedIn', 'true');
-                localStorage.setItem('username', username);
-                
-                // Chuyển đến dashboard
                 window.location.href = 'dashboard.html';
             } else {
-                // Hiển thị thông báo lỗi
                 alert('Tên đăng nhập hoặc mật khẩu không đúng!');
             }
         });
