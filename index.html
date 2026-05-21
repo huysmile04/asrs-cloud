@@ -203,16 +203,37 @@
         transform: translateY(0);
     }
 
-    /* Responsive cơ bản cho màn hình nhỏ (Điện thoại/Tablet) */
+    /* === RESPONSIVE === */
+    @media (max-width: 900px) {
+        .about-container { flex-direction: column; gap: 30px; }
+        .about-text h2 { font-size: 48px; }
+        .about-text h3 { font-size: 26px; }
+        .about-text p { font-size: 18px; }
+    }
     @media (max-width: 768px) {
-        .about-container {
-            flex-direction: column; /* Đẩy chữ xuống dưới ảnh trên màn hình nhỏ */
-            gap: 30px;
-        }
-        
-        .about-text h2 {
-            font-size: 48px;
-        }
+        body { padding-top: 60px; }
+        header { height: 60px; padding: 10px 18px; }
+        .left-section { gap: 16px; }
+        .logo img { height: 32px; }
+        nav a { font-size: 13px; }
+        .login-btn { padding: 8px 16px; font-size: 14px; }
+        .hero-section { height: calc(100vh - 60px); }
+        .hero-title { font-size: 38px; padding: 0 20px; letter-spacing: 1px; }
+        .about-section { padding: 50px 20px; }
+        .about-text h2 { font-size: 42px; }
+        .about-text h3 { font-size: 22px; }
+        .about-text p { font-size: 16px; }
+    }
+    @media (max-width: 480px) {
+        header { padding: 8px 12px; }
+        .left-section { gap: 10px; }
+        nav a { font-size: 12px; }
+        .login-btn { padding: 7px 14px; font-size: 13px; border-radius: 6px; }
+        .hero-title { font-size: 26px; letter-spacing: 0; }
+        .about-section { padding: 36px 16px; }
+        .about-text h2 { font-size: 34px; }
+        .about-text h3 { font-size: 18px; }
+        .about-text p { font-size: 15px; }
     }
     </style>
 </head>
@@ -242,9 +263,9 @@
         </div>
         
         <div class="about-text">
-            <h2>Lưu kho</h2>
-            <h3>Giới thiệu</h3>
-            <p>abc</p>
+            <h2>AS/RS</h2>
+            <h3>Hệ thống lưu kho tự động</h3>
+            <p>Ứng dụng Robot X-Y tích hợp RFID và PLC S7-1200 để tự động hóa hoàn toàn quy trình nhập/xuất kho, giảm thiểu sai số và tối ưu hiệu suất vận hành trong môi trường công nghiệp.</p>
         </div>
     </div>
 </section>

@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Báo cáo Vận hành - AS/RS HCMUTE</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.17.0/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mqtt@5.3.4/dist/mqtt.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #00529c;
+            --danger: #ef4444;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --purple: #7c3aed;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-sub: #64748b;
+            --border: #e2e8f0;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background-color: var(--bg); color: var(--text-main); padding-bottom: 70px; }
+
+        /* === HEADER === */
+        header {
+            background: white;
+            padding: 20px 50px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            position: sticky; top: 0; z-index: 100;
+        }
+        .header-title { font-size: 24px; font-weight: 800; color: var(--primary); }
+        .btn-back {
+            background: #475569; color: white; border: none;
+            padding: 11px 22px; border-radius: 8px; text-decoration: none;
+            font-size: 15px; font-weight: 600; transition: 0.2s;
+        }
+        .btn-back:hover { background: #334155; }
+
+        .container { max-width: 1500px; margin: 30px auto; padding: 0 35px; }
+
+        /* === SECTION TITLE === */
+        .section-title {
+            font-size: 18px; font-weight: 800; color: var(--text-main);
+            margin-bottom: 16px; display: flex; align-items: center; gap: 10px;
+        }
+        .section-title::after { content: ''; flex: 1; height: 2px; background: var(--border); }
+
+        /* === FILTER BAR === */
+        .filter-bar {
+            background: white; padding: 22px 28px; border-radius: 16px;
+            display: flex; gap: 16px; align-items: flex-end; margin-bottom: 28px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.04); flex-wrap: wrap;
+        }
+        .filter-group { display: flex; flex-direction: column; gap: 7px; font-size: 13px; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.04em; }
+        .filter-group input, .filter-group select {
+            padding: 11px 14px; border: 1.5px solid var(--border); border-radius: 8px;
+            outline: none; font-size: 14px; font-family: 'Inter', sans-serif;
+            transition: border-color 0.2s;
+        }
+        .filter-group input:focus, .filter-group select:focus { border-color: var(--primary); }
+        .btn-group { display: flex; gap: 10px; margin-left: auto; align-items: flex-end; }
+        .btn-action {
+            border: none; padding: 11px 22px; border-radius: 9px; cursor: pointer;
+            font-weight: 700; font-size: 14px; transition: 0.2s; display: flex; align-items: center; gap: 7px;
+        }
+        .btn-action:hover { transform: translateY(-2px); opacity: 0.9; }
+        .btn-filter  { background: var(--primary); color: white; }
+        .btn-excel   { background: var(--success); color: white; }
+        .btn-word    { background: var(--purple);  color: white; }
+
+        /* === STAT CARDS === */
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 28px; }
+        .stat-card {
+            background: white; padding: 26px 28px; border-radius: 18px;
+            border: 1px solid var(--border); box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+        }
+        .stat-icon { font-size: 26px; margin-bottom: 10px; }
+        .stat-label { font-size: 12px; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; display: block; }
+        .stat-value { font-size: 42px; font-weight: 800; color: var(--text-main); line-height: 1; }
+        .stat-sub { font-size: 13px; margin-top: 10px; font-weight: 600; color: var(--text-sub); }
+        .c-success { color: var(--success); }
+        .c-danger  { color: var(--danger); }
+        .c-primary { color: var(--primary); }
+
+        /* === CHARTS === */
+        .charts-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-bottom: 22px; }
+        .charts-main { display: grid; grid-template-columns: 2fr 1fr; gap: 22px; margin-bottom: 28px; }
+        .chart-card { background: white; padding: 26px; border-radius: 18px; border: 1px solid var(--border); }
+        .chart-title { font-size: 15px; font-weight: 700; margin-bottom: 18px; color: var(--text-main); }
+
+        /* === TABLES === */
+        .table-card { background: white; border-radius: 18px; border: 1px solid var(--border); overflow: hidden; margin-bottom: 28px; }
+        .table-header {
+            padding: 20px 26px; border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .table-header h3 { font-size: 17px; font-weight: 700; color: var(--text-main); }
+        .table-badge { font-size: 13px; font-weight: 700; padding: 5px 14px; border-radius: 20px; }
+        .tb-normal  { background: #e0f2fe; color: #0369a1; }
+        .tb-danger  { background: #fee2e2; color: #991b1b; }
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; text-align: left; min-width: 600px; }
+        th { background: #f8fafc; padding: 14px 22px; font-size: 12px; font-weight: 700; color: var(--text-sub); border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.05em; }
+        td { padding: 15px 22px; font-size: 15px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+        tbody tr:hover { background: #f8fafc; }
+        .badge { padding: 5px 14px; border-radius: 6px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+        .badge-import { background: #dcfce7; color: #166534; }
+        .badge-export { background: #fee2e2; color: #991b1b; }
+        .badge-error  { background: #fef3c7; color: #92400e; }
+        .empty-td { text-align: center !important; padding: 40px !important; color: #94a3b8; font-size: 15px; }
+
+        /* === ERROR DOT ANIMATION === */
+        .live-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--danger); display: inline-block; margin-right: 8px; animation: blink 1.4s infinite; }
+        @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.25; } }
+
+        /* === MQTT STATUS CHIP === */
+        .mqtt-chip {
+            position: fixed; bottom: 24px; right: 24px;
+            padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 700;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 999;
+            background: #fef3c7; color: #92400e;
+        }
+        .mqtt-chip.connected { background: #dcfce7; color: #166534; }
+
+        /* === RESPONSIVE === */
+        @media (max-width: 1200px) {
+            .charts-main { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 960px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 14px; }
+            .charts-2col { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 640px) {
+            header { padding: 14px 16px; }
+            .header-title { font-size: 15px; }
+            .btn-back { padding: 9px 14px; font-size: 13px; white-space: nowrap; }
+            .container { padding: 0 14px; margin: 16px auto; }
+            .filter-bar { padding: 16px; gap: 10px; }
+            .filter-group input, .filter-group select { padding: 10px 12px; font-size: 13px; }
+            .btn-group { width: 100%; margin-left: 0; }
+            .btn-action { flex: 1; justify-content: center; font-size: 13px; padding: 10px 14px; }
+            .stat-card { padding: 18px 16px; }
+            .stat-icon { font-size: 22px; }
+            .stat-value { font-size: 32px; }
+            .stat-label { font-size: 11px; }
+            .chart-card { padding: 18px; }
+            .chart-title { font-size: 13px; }
+            th { padding: 11px 14px; font-size: 11px; }
+            td { padding: 12px 14px; font-size: 13px; }
+            .table-header { padding: 16px 18px; flex-wrap: wrap; gap: 8px; }
+            .table-header h3 { font-size: 15px; }
+            .section-title { font-size: 15px; }
+            .mqtt-chip { bottom: 14px; right: 14px; font-size: 12px; padding: 6px 12px; }
+        }
+        @media (max-width: 420px) {
+            header { flex-wrap: wrap; gap: 8px; }
+            .header-title { font-size: 13px; }
+            .stats-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+            .stat-value { font-size: 26px; }
+            .stat-sub { font-size: 11px; }
+            .container { padding: 0 10px; }
+            .filter-bar { padding: 12px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="mqtt-chip" id="mqttChip">● Đang kết nối MQTT...</div>
+
+<header>
+    <div class="header-title">📋 BÁO CÁO VẬN HÀNH HỆ THỐNG</div>
+    <a href="dashboard.html" class="btn-back">← QUAY LẠI DASHBOARD</a>
+</header>
+
+<div class="container">
+
+    <!-- BỘ LỌC + XUẤT FILE -->
+    <div class="filter-bar">
+        <div class="filter-group">
+            Từ ngày
+            <input type="date" id="startDate">
+        </div>
+        <div class="filter-group">
+            Đến ngày
+            <input type="date" id="endDate">
+        </div>
+        <div class="filter-group">
+            Loại thao tác
+            <select id="actionFilter">
+                <option value="all">Tất cả sự kiện</option>
+                <option value="import">Chỉ Nhập hàng</option>
+                <option value="export">Chỉ Xuất hàng</option>
+            </select>
+        </div>
+        <button class="btn-action btn-filter" onclick="applyFilter()">🔍 Lọc dữ liệu</button>
+        <div class="btn-group">
+            <button class="btn-action btn-excel" onclick="exportToExcel()">📊 Xuất Excel</button>
+            <button class="btn-action btn-word"  onclick="exportToWord()">📄 Xuất Word</button>
+        </div>
+    </div>
+
+    <!-- STAT CARDS -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">📦</div>
+            <span class="stat-label">Tổng lưu lượng</span>
+            <div class="stat-value" id="statTotal">0</div>
+            <div class="stat-sub" id="statTotalTrend">Đang kết nối...</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">🏭</div>
+            <span class="stat-label">Lấp đầy kho</span>
+            <div class="stat-value c-primary" id="statOccupancy">0%</div>
+            <div class="stat-sub" id="statOccupancyTrend">-- Slots đang dùng</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">📥</div>
+            <span class="stat-label">Tổng Import</span>
+            <div class="stat-value c-success" id="statImport">0</div>
+            <div class="stat-sub">Số lần nhập hàng</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">📤</div>
+            <span class="stat-label">Tổng Export</span>
+            <div class="stat-value c-danger" id="statExport">0</div>
+            <div class="stat-sub">Số lần xuất hàng</div>
+        </div>
+    </div>
+
+    <!-- BIỂU ĐỒ: THEO GIỜ + THEO SLOT -->
+    <div class="section-title">📈 Thống kê số lượng hàng</div>
+    <div class="charts-2col">
+        <div class="chart-card">
+            <div class="chart-title">Số lượng hàng theo giờ trong ngày</div>
+            <canvas id="barHourChart" height="130"></canvas>
+        </div>
+        <div class="chart-card">
+            <div class="chart-title">Số lượng hàng theo Slot kho</div>
+            <canvas id="barSlotChart" height="130"></canvas>
+        </div>
+    </div>
+
+    <!-- BIỂU ĐỒ: TREND + TỈ LỆ -->
+    <div class="charts-main">
+        <div class="chart-card">
+            <div class="chart-title">Xu hướng Xuất / Nhập theo thời gian thực</div>
+            <canvas id="lineChart" height="100"></canvas>
+        </div>
+        <div class="chart-card">
+            <div class="chart-title">Tỉ lệ Import / Export</div>
+            <canvas id="pieChart" height="100"></canvas>
+        </div>
+    </div>
+
+    <!-- BẢNG LỊCH SỬ HOẠT ĐỘNG -->
+    <div class="section-title">📋 Nhật ký lịch sử</div>
+    <div class="table-card">
+        <div class="table-header">
+            <h3>Lịch sử hoạt động Import / Export</h3>
+            <span class="table-badge tb-normal" id="logCount">0 bản ghi</span>
+        </div>
+        <div class="table-wrap">
+            <table id="reportTable">
+                <thead>
+                    <tr>
+                        <th>Thời gian</th>
+                        <th>Thao tác</th>
+                        <th>Vị trí (Slot)</th>
+                        <th>Tên sản phẩm</th>
+                        <th>Trạng thái</th>
+                    </tr>
+                </thead>
+                <tbody id="reportBody">
+                    <tr><td class="empty-td" colspan="5">Đang chờ dữ liệu từ thiết bị...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- BẢNG LỊCH SỬ LỖI -->
+    <div class="table-card">
+        <div class="table-header">
+            <h3><span class="live-dot"></span>Nhật ký lịch sử lỗi hệ thống</h3>
+            <span class="table-badge tb-danger" id="errorCount">0 lỗi</span>
+        </div>
+        <div class="table-wrap">
+            <table id="errorTable">
+                <thead>
+                    <tr>
+                        <th>Thời gian phát hiện</th>
+                        <th>Mô tả lỗi</th>
+                        <th>Mức độ</th>
+                        <th>Trạng thái xử lý</th>
+                    </tr>
+                </thead>
+                <tbody id="errorBody">
+                    <tr><td class="empty-td" colspan="4">✅ Chưa ghi nhận lỗi nào — Hệ thống hoạt động bình thường</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    authGuard();
+
+    let allReportData = [];
+    let allErrorData  = [];
+    let lineChartInst, pieChartInst, barHourInst, barSlotInst;
+
+    const HOURS = ['06h','07h','08h','09h','10h','11h','12h','13h','14h','15h','16h','17h'];
+    const SLOTS = Array.from({length: 9}, (_, i) => 'Slot ' + (i + 1));
+
+    barHourInst = new Chart(document.getElementById('barHourChart'), {
+        type: 'bar',
+        data: {
+            labels: HOURS,
+            datasets: [
+                { label: 'Nhập', data: Array(12).fill(0), backgroundColor: 'rgba(0,82,156,0.8)',  borderRadius: 5 },
+                { label: 'Xuất', data: Array(12).fill(0), backgroundColor: 'rgba(239,68,68,0.8)', borderRadius: 5 }
+            ]
+        },
+        options: { plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } } } }
+    });
+
+    barSlotInst = new Chart(document.getElementById('barSlotChart'), {
+        type: 'bar',
+        data: {
+            labels: SLOTS,
+            datasets: [
+                { label: 'Nhập', data: Array(9).fill(0), backgroundColor: 'rgba(16,185,129,0.8)',  borderRadius: 5 },
+                { label: 'Xuất', data: Array(9).fill(0), backgroundColor: 'rgba(245,158,11,0.8)',  borderRadius: 5 }
+            ]
+        },
+        options: { plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } } } }
+    });
+
+    lineChartInst = new Chart(document.getElementById('lineChart'), {
+        type: 'line',
+        data: {
+            labels: HOURS,
+            datasets: [
+                { label: 'Lượt Nhập', data: Array(12).fill(0), borderColor: '#00529c', tension: 0.4, fill: true, backgroundColor: 'rgba(0,82,156,0.08)' },
+                { label: 'Lượt Xuất', data: Array(12).fill(0), borderColor: '#ef4444', tension: 0.4 }
+            ]
+        }
+    });
+
+    pieChartInst = new Chart(document.getElementById('pieChart'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Import', 'Export'],
+            datasets: [{ data: [0, 0], backgroundColor: ['#00529c', '#ef4444'], borderWidth: 3 }]
+        },
+        options: { cutout: '65%', plugins: { legend: { position: 'bottom' } } }
+    });
+
+    const reportClient = mqtt.connect(MQTT_CFG.url, { ...MQTT_CFG.options, clientId: getClientId('report') });
+    window.addEventListener('beforeunload', () => { if (reportClient && reportClient.connected) reportClient.end(true); });
+
+    reportClient.on('connect', () => {
+        document.getElementById('mqttChip').textContent = '● MQTT Đã kết nối';
+        document.getElementById('mqttChip').classList.add('connected');
+        reportClient.subscribe(['warehouse/history', 'warehouse/history_init', 'warehouse/error'], err => {
+            if (!err) setTimeout(() => reportClient.publish('warehouse/command', JSON.stringify({ action: 'GET_HISTORY' })), 500);
+        });
+    });
+
+    reportClient.on('close', () => {
+        document.getElementById('mqttChip').textContent = '● MQTT Ngắt kết nối';
+        document.getElementById('mqttChip').classList.remove('connected');
+    });
+
+    reportClient.on('message', (topic, msg) => {
+        try {
+            const d = JSON.parse(msg.toString());
+            if (topic === 'warehouse/history_init') {
+                let arr = Array.isArray(d) ? d : Object.values(d);
+                arr.sort((a, b) => String(a.time || a.timestamp || '').localeCompare(String(b.time || b.timestamp || '')));
+                allReportData = arr;
+                renderReport(allReportData);
+            }
+            if (topic === 'warehouse/history') {
+                allReportData.push(d);
+                renderReport(allReportData);
+            }
+            if (topic === 'warehouse/error') {
+                const errMsg = typeof d === 'string' ? d : JSON.stringify(d);
+                allErrorData.push({ time: new Date().toLocaleTimeString('vi-VN'), msg: errMsg });
+                renderErrorLog();
+            }
+        } catch(e) {}
+    });
+
+    function renderReport(data) {
+        const { imports, exports, hourImp, hourExp, slotImp, slotExp } = computeStats(data);
+        const total = data.length;
+
+        const wData      = JSON.parse(localStorage.getItem('warehouseDataV2') || '{}');
+        const totalSlots = Object.keys(wData).length || 9;
+        const occupied   = Object.values(wData).filter(s => s.status === 'occupied').length;
+        const pct        = totalSlots > 0 ? Math.round((occupied / totalSlots) * 100) : 0;
+
+        document.getElementById('statTotal').textContent          = total;
+        document.getElementById('statTotalTrend').textContent     = imports + ' Nhập,  ' + exports + ' Xuất';
+        document.getElementById('statOccupancy').textContent      = pct + '%';
+        document.getElementById('statOccupancyTrend').textContent = occupied + '/' + totalSlots + ' Slots đang dùng';
+        document.getElementById('statImport').textContent         = imports;
+        document.getElementById('statExport').textContent         = exports;
+
+        barHourInst.data.datasets[0].data = hourImp;
+        barHourInst.data.datasets[1].data = hourExp;
+        barHourInst.update();
+
+        barSlotInst.data.datasets[0].data = slotImp;
+        barSlotInst.data.datasets[1].data = slotExp;
+        barSlotInst.update();
+
+        lineChartInst.data.datasets[0].data = hourImp;
+        lineChartInst.data.datasets[1].data = hourExp;
+        lineChartInst.update();
+
+        pieChartInst.data.datasets[0].data = [imports, exports];
+        pieChartInst.update();
+
+        renderTable(data);
+    }
+
+    function renderTable(data) {
+        const tbody = document.getElementById('reportBody');
+        document.getElementById('logCount').textContent = data.length + ' bản ghi';
+        if (!data.length) {
+            tbody.innerHTML = '<tr><td class="empty-td" colspan="5">Đang chờ dữ liệu từ thiết bị...</td></tr>';
+            return;
+        }
+        tbody.innerHTML = [...data].reverse().map(item => {
+            const act       = escapeHtml((item.act || item.action || 'UNKNOWN').toUpperCase());
+            const badgeCls  = act === 'IMPORT' ? 'badge-import' : 'badge-export';
+            const slotRaw   = escapeHtml(String(item.slot || item.slot_id || 'N/A'));
+            const slotLabel = slotRaw.includes('Slot') ? slotRaw : 'Slot ' + slotRaw;
+            return `<tr>
+                <td style="font-family:monospace;color:var(--text-sub);">${escapeHtml(String(item.time || item.timestamp || '--:--:--'))}</td>
+                <td><span class="badge ${badgeCls}">${act}</span></td>
+                <td><strong>${slotLabel}</strong></td>
+                <td>${escapeHtml(String(item.item || item.item_name || '---'))}</td>
+                <td style="color:var(--success);font-weight:700;">✅ Thành công</td>
+            </tr>`;
+        }).join('');
+    }
+
+    function renderErrorLog() {
+        const tbody = document.getElementById('errorBody');
+        document.getElementById('errorCount').textContent = allErrorData.length + ' lỗi';
+        if (!allErrorData.length) {
+            tbody.innerHTML = '<tr><td class="empty-td" colspan="4">✅ Chưa ghi nhận lỗi nào — Hệ thống hoạt động bình thường</td></tr>';
+            return;
+        }
+        tbody.innerHTML = [...allErrorData].reverse().map(err => `<tr>
+            <td style="font-family:monospace;color:var(--text-sub);">${escapeHtml(err.time)}</td>
+            <td>${escapeHtml(err.msg)}</td>
+            <td><span class="badge badge-error">LỖI</span></td>
+            <td style="color:var(--danger);font-weight:700;">⚠️ Cần kiểm tra</td>
+        </tr>`).join('');
+    }
+
+    function applyFilter() {
+        const startDate    = document.getElementById('startDate').value;
+        const endDate      = document.getElementById('endDate').value;
+        const actionFilter = document.getElementById('actionFilter').value;
+        let filtered = [...allReportData];
+        if (startDate || endDate) {
+            filtered = filtered.filter(d => {
+                const t = String(d.time || d.timestamp || '');
+                if (startDate && t < startDate) return false;
+                if (endDate   && t > endDate)   return false;
+                return true;
+            });
+        }
+        if (actionFilter !== 'all') {
+            filtered = filtered.filter(d => (d.act || d.action || '').toUpperCase() === actionFilter.toUpperCase());
+        }
+        renderTable(filtered);
+        Swal.fire({ title: 'Đã lọc', text: 'Hiển thị ' + filtered.length + ' kết quả', icon: 'success', timer: 1500, showConfirmButton: false });
+    }
+
+    function exportToExcel() {
+        const wb = XLSX.utils.book_new();
+        const { hourImp, hourExp, slotImp, slotExp } = computeStats(allReportData);
+
+        const s1 = [['Thời gian','Thao tác','Slot','Tên sản phẩm','Trạng thái']];
+        allReportData.forEach(item => s1.push([
+            item.time || item.timestamp || '--',
+            (item.act || item.action || '').toUpperCase(),
+            'Slot ' + (item.slot || item.slot_id || 'N/A'),
+            item.item || item.item_name || '---',
+            'Thành công'
+        ]));
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(s1), 'Lịch sử hoạt động');
+
+        const s2 = [['Giờ','Số lần Nhập','Số lần Xuất','Tổng']];
+        HOURS.forEach((h, i) => s2.push([h, hourImp[i], hourExp[i], hourImp[i] + hourExp[i]]));
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(s2), 'Thống kê theo giờ');
+
+        const s3 = [['Slot','Số lần Nhập','Số lần Xuất','Tổng']];
+        SLOTS.forEach((s, i) => s3.push([s, slotImp[i], slotExp[i], slotImp[i] + slotExp[i]]));
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(s3), 'Thống kê theo Slot');
+
+        const s4 = [['Thời gian','Mô tả lỗi','Mức độ','Trạng thái']];
+        allErrorData.forEach(err => s4.push([err.time, err.msg, 'LỖI', 'Cần kiểm tra']));
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(s4), 'Lịch sử lỗi');
+
+        XLSX.writeFile(wb, 'Bao-cao-kho-ASRS_' + new Date().toLocaleDateString('vi-VN').replace(/\//g,'-') + '.xlsx');
+    }
+
+    function exportToWord() {
+        const { imports, exports } = computeStats(allReportData);
+        const total = allReportData.length;
+        const now   = new Date().toLocaleString('vi-VN');
+
+        const histRows = allReportData.length
+            ? [...allReportData].reverse().map(item => `<tr>
+                <td>${escapeHtml(String(item.time || '--'))}</td>
+                <td>${escapeHtml((item.act || item.action || '').toUpperCase())}</td>
+                <td>Slot ${escapeHtml(String(item.slot || 'N/A'))}</td>
+                <td>${escapeHtml(String(item.item || '---'))}</td>
+                <td>Thành công</td>
+              </tr>`).join('')
+            : '<tr><td colspan="5" style="text-align:center;">Không có dữ liệu</td></tr>';
+
+        const errRows = allErrorData.length
+            ? [...allErrorData].reverse().map(e => `<tr>
+                <td>${escapeHtml(e.time)}</td>
+                <td>${escapeHtml(e.msg)}</td>
+                <td style="color:red;font-weight:bold;">LỖI</td>
+                <td>Cần kiểm tra</td>
+              </tr>`).join('')
+            : '<tr><td colspan="4" style="text-align:center;">Không có lỗi nào</td></tr>';
+
+        const html = `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office"
+              xmlns:w="urn:schemas-microsoft-com:office:word"
+              xmlns="http://www.w3.org/TR/REC-html40">
+        <head><meta charset="UTF-8">
+        <style>
+            body { font-family: Arial, sans-serif; font-size: 13pt; color: #1e293b; margin: 40px; }
+            h1 { color: #00529c; text-align: center; font-size: 18pt; margin-bottom: 4px; }
+            h2 { color: #00529c; font-size: 14pt; margin: 24px 0 10px; border-bottom: 2px solid #00529c; padding-bottom: 4px; }
+            .subtitle { text-align: center; color: #64748b; font-size: 11pt; margin-bottom: 28px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 11pt; }
+            th { background: #00529c; color: white; padding: 9px 12px; border: 1px solid #ddd; text-align: left; }
+            td { padding: 8px 12px; border: 1px solid #ddd; }
+            tr:nth-child(even) td { background: #f8fafc; }
+            .sum-box { display: inline-block; border: 1px solid #ddd; border-radius: 6px; padding: 12px 24px; margin: 6px; text-align: center; min-width: 100px; }
+            .sum-box b { display: block; font-size: 20pt; color: #00529c; }
+            .sum-row { text-align: center; margin-bottom: 24px; }
+        <\/style>
+        <\/head><body>
+        <h1>BÁO CÁO VẬN HÀNH HỆ THỐNG AS/RS</h1>
+        <p class="subtitle">Trường Đại học Công nghệ Kỹ thuật TP.HCM — HCMUTE<br>Ngày xuất báo cáo: ${now}</p>
+
+        <h2>1. Tổng quan</h2>
+        <div class="sum-row">
+            <div class="sum-box"><b>${total}</b>Tổng thao tác</div>
+            <div class="sum-box"><b>${imports}</b>Tổng Import</div>
+            <div class="sum-box"><b>${exports}</b>Tổng Export</div>
+            <div class="sum-box"><b>${allErrorData.length}</b>Số lỗi</div>
+        </div>
+
+        <h2>2. Nhật ký lịch sử hoạt động</h2>
+        <table>
+            <tr><th>Thời gian</th><th>Thao tác</th><th>Slot</th><th>Sản phẩm</th><th>Kết quả</th></tr>
+            ${histRows}
+        </table>
+
+        <h2>3. Nhật ký lịch sử lỗi hệ thống</h2>
+        <table>
+            <tr><th>Thời gian</th><th>Mô tả lỗi</th><th>Mức độ</th><th>Trạng thái</th></tr>
+            ${errRows}
+        </table>
+        <\/body><\/html>`;
+
+        const blob = new Blob([html], { type: 'application/msword;charset=utf-8' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = 'Bao-cao-kho-ASRS_' + new Date().toLocaleDateString('vi-VN').replace(/\//g,'-') + '.doc';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+</script>
+</body>
+</html>

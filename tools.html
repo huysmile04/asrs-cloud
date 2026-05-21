@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Monitoring Center - AS/RS HCMUTE</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mqtt@5.3.4/dist/mqtt.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #00529c;
+            --danger: #ef4444;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-sub: #64748b;
+            --border: #e2e8f0;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background-color: var(--bg); color: var(--text-main); padding-bottom: 50px; }
+
+        /* === HEADER TO & RÕ === */
+        header {
+            background: white;
+            padding: 20px 60px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            position: sticky; top: 0; z-index: 100;
+        }
+        .header-title { display: flex; align-items: center; gap: 15px; font-size: 26px; font-weight: 800; color: var(--primary); }
+        .btn-back { 
+            background: #475569; color: white; border: none; padding: 12px 24px; 
+            border-radius: 8px; cursor: pointer; text-decoration: none; font-size: 16px; font-weight: 600;
+        }
+
+        /* === CONTAINER RỘNG HƠN === */
+        .container {
+            max-width: 1450px;
+            margin: 40px auto;
+            padding: 0 30px;
+            display: grid;
+            grid-template-columns: 1fr 1.3fr;
+            gap: 35px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 35px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            border: 1px solid var(--border);
+        }
+
+        .card-title {
+            font-size: 20px;
+            font-weight: 800;
+            color: #1e293b;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 2px solid var(--bg);
+            padding-bottom: 15px;
+        }
+
+        /* === BIỂU ĐỒ TRÒN TO (BIG GAUGES) === */
+        .gauge-row { display: flex; justify-content: space-around; margin: 20px 0; }
+        .gauge-box { text-align: center; }
+        .gauge-svg { width: 130px; height: 130px; transform: rotate(-90deg); }
+        .circle-bg { fill: none; stroke: #f1f5f9; stroke-width: 12; }
+        .circle-fill { 
+            fill: none; stroke-width: 12; stroke-linecap: round; 
+            stroke-dasharray: 314; stroke-dashoffset: 314; /* Chu vi mới cho r=50 là 314 */
+            transition: stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1); 
+        }
+        .gauge-val { 
+            font-size: 24px; font-weight: 800; transform: rotate(90deg); 
+            transform-origin: center; fill: var(--text-main); text-anchor: middle; dominant-baseline: middle; 
+        }
+        .gauge-name { font-size: 14px; font-weight: 700; color: var(--text-sub); margin-top: 15px; }
+
+        /* === TRẠNG THÁI THIẾT BỊ HỆ THỐNG === */
+        .sys-status-list { margin-top: 30px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .sys-item { background: #f8fafc; padding: 20px; border-radius: 15px; text-align: center; border: 1px solid var(--border); }
+        .sys-item b { display: block; font-size: 15px; color: var(--text-sub); margin-bottom: 5px; }
+        .sys-item span { font-size: 18px; font-weight: 800; color: var(--success); }
+
+        /* === MOTOR MONITORING CARDS TO RÕ === */
+        .motor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
+        .motor-card { 
+            background: #ffffff; 
+            border: 2px solid #f1f5f9; 
+            border-radius: 18px; 
+            padding: 25px; 
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+        }
+        .motor-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            margin-bottom: 20px; 
+            font-size: 18px; 
+            font-weight: 800; 
+            color: var(--primary);
+        }
+        .status-indicator {
+            width: 12px; height: 12px; border-radius: 50%; background: #cbd5e1;
+        }
+        .status-indicator.on { background: var(--success); box-shadow: 0 0 10px var(--success); }
+
+        .m-data { display: flex; flex-direction: column; gap: 12px; }
+        .m-row { display: flex; justify-content: space-between; font-size: 15px; padding-bottom: 8px; border-bottom: 1px solid #f1f5f9; }
+        .m-row:last-child { border-bottom: none; }
+        .m-label { color: var(--text-sub); font-weight: 500; }
+        .m-val { font-weight: 800; color: var(--text-main); font-family: 'Courier New', Courier, monospace; font-size: 18px; }
+
+        .info-footer { margin-top: 25px; font-size: 13px; color: var(--text-sub); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
+
+        /* === RESPONSIVE === */
+        @media (max-width: 1100px) {
+            header { padding: 16px 24px; }
+            .header-title { font-size: 20px; }
+            .container { grid-template-columns: 1fr; gap: 24px; padding: 0 24px; margin: 24px auto; }
+            .motor-grid { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 640px) {
+            header { padding: 12px 16px; }
+            .header-title { font-size: 15px; gap: 8px; }
+            .btn-back { padding: 9px 14px; font-size: 13px; }
+            .container { padding: 0 14px; margin: 16px auto; gap: 18px; }
+            .card { padding: 20px 18px; }
+            .card-title { font-size: 16px; margin-bottom: 18px; padding-bottom: 12px; }
+            .gauge-row { gap: 6px; }
+            .gauge-svg { width: 95px; height: 95px; }
+            .gauge-val { font-size: 20px; }
+            .gauge-name { font-size: 11px; margin-top: 8px; }
+            .sys-status-list { grid-template-columns: 1fr 1fr; gap: 10px; }
+            .sys-item { padding: 14px 10px; }
+            .sys-item b { font-size: 13px; }
+            .sys-item span { font-size: 14px; }
+            .motor-grid { grid-template-columns: 1fr; gap: 14px; }
+            .motor-card { padding: 18px; }
+            .motor-header { font-size: 15px; margin-bottom: 14px; }
+            .m-val { font-size: 15px; }
+            .m-row { font-size: 13px; }
+            body { padding-bottom: 24px; }
+        }
+        @media (max-width: 380px) {
+            .gauge-svg { width: 78px; height: 78px; }
+            .gauge-val { font-size: 17px; }
+            .sys-status-list { grid-template-columns: 1fr; }
+            .header-title { font-size: 13px; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-title">📊 TRUNG TÂM GIÁM SÁT HỆ THỐNG AS/RS</div>
+        <a href="dashboard.html" class="btn-back">← QUAY LẠI DASHBOARD</a>
+    </header>
+
+    <div class="container">
+        
+        <!-- CỘT 1: GIÁM SÁT RASPBERRY PI -->
+        <div class="column">
+            <div class="card">
+                <h3 class="card-title">🖥️ Thông số Raspberry Pi</h3>
+                <div class="gauge-row">
+                    <!-- CPU -->
+                    <div class="gauge-box">
+                        <svg class="gauge-svg" viewBox="0 0 120 120">
+                            <circle class="circle-bg" cx="60" cy="60" r="50"/>
+                            <circle id="cpuCir" class="circle-fill" cx="60" cy="60" r="50" stroke="var(--primary)"/>
+                            <text x="60" y="60" class="gauge-val" id="cpuVal">0%</text>
+                        </svg>
+                        <div class="gauge-name">TẢI CPU</div>
+                    </div>
+                    <!-- RAM -->
+                    <div class="gauge-box">
+                        <svg class="gauge-svg" viewBox="0 0 120 120">
+                            <circle class="circle-bg" cx="60" cy="60" r="50"/>
+                            <circle id="ramCir" class="circle-fill" cx="60" cy="60" r="50" stroke="var(--warning)"/>
+                            <text x="60" y="60" class="gauge-val" id="ramVal">0%</text>
+                        </svg>
+                        <div class="gauge-name">SỬ DỤNG RAM</div>
+                    </div>
+                    <!-- TEMP -->
+                    <div class="gauge-box">
+                        <svg class="gauge-svg" viewBox="0 0 120 120">
+                            <circle class="circle-bg" cx="60" cy="60" r="50"/>
+                            <circle id="tmpCir" class="circle-fill" cx="60" cy="60" r="50" stroke="var(--danger)"/>
+                            <text x="60" y="60" class="gauge-val" id="tmpVal">0°C</text>
+                        </svg>
+                        <div class="gauge-name">NHIỆT ĐỘ PI</div>
+                    </div>
+                </div>
+
+                <div class="sys-status-list">
+                    <div class="sys-item"><b>PLC S7-1200</b><span id="plcStatus" style="color:var(--text-sub)">WAITING...</span></div>
+                    <div class="sys-item"><b>RFID READER</b><span id="rfidStatus" style="color:var(--text-sub)">WAITING...</span></div>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top: 35px;">
+                <h3 class="card-title">📡 Thông tin MQTT Broker</h3>
+                <div class="m-data">
+                    <div class="m-row"><span class="m-label">Server Host:</span><span class="m-val" style="font-size: 14px;">hivemq.cloud</span></div>
+                    <div class="m-row"><span class="m-label">Trạng thái:</span><span class="m-val" style="color: var(--success);">ONLINE</span></div>
+                    <div class="m-row"><span class="m-label">Thời gian thực:</span><span class="m-val" id="realTimeClock">--:--:--</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CỘT 2: GIÁM SÁT ĐỘNG CƠ -->
+        <div class="column">
+            <div class="card">
+                <h3 class="card-title">⚙️ Trạng thái vận hành động cơ</h3>
+                <div class="motor-grid">
+                    <!-- Băng tải -->
+                    <div class="motor-card">
+                        <div class="motor-header">
+                            <span>Băng tải chính</span>
+                            <div class="status-indicator on" id="m1_led"></div>
+                        </div>
+                        <div class="m-data">
+                            <div class="m-row"><span class="m-label">Tốc độ:</span><span class="m-val" id="m1_speed">0 rpm</span></div>
+                            <div class="m-row"><span class="m-label">Công suất:</span><span class="m-val" id="m1_power">0 W</span></div>
+                        </div>
+                    </div>
+                    <!-- Robot X-Y -->
+                    <div class="motor-card">
+                        <div class="motor-header">
+                            <span>Robot X-Y</span>
+                            <div class="status-indicator on" id="m2_led"></div>
+                        </div>
+                        <div class="m-data">
+                            <div class="m-row"><span class="m-label">Vị trí:</span><span class="m-val" id="m2_pos">Slot --</span></div>
+                            <div class="m-row"><span class="m-label">Tình trạng:</span><span class="m-val">Ổn định</span></div>
+                        </div>
+                    </div>
+                    <!-- Trục nâng -->
+                    <div class="motor-card">
+                        <div class="motor-header">
+                            <span>Trục nâng hàng</span>
+                            <div class="status-indicator" id="m3_led"></div>
+                        </div>
+                        <div class="m-data">
+                            <div class="m-row"><span class="m-label">Tầng hiện tại:</span><span class="m-val" id="m3_level">--</span></div>
+                            <div class="m-row"><span class="m-label">Trạng thái:</span><span class="m-val">Dừng</span></div>
+                        </div>
+                    </div>
+                    <!-- Xoay RFID -->
+                    <div class="motor-card">
+                        <div class="motor-header">
+                            <span>Cơ cấu Xoay RFID</span>
+                            <div class="status-indicator on" id="m4_led"></div>
+                        </div>
+                        <div class="m-data">
+                            <div class="m-row"><span class="m-label">Góc độ xoay:</span><span class="m-val" id="m4_angle" style="color: var(--primary);">0°</span></div>
+                            <div class="m-row"><span class="m-label">Nhiệt độ cục bộ:</span><span class="m-val" id="m4_temp">0°C</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="info-footer">
+                    <span>* Dữ liệu được làm mới mỗi 2 giây</span>
+                    <span>Version 4.0 Pro Monitoring</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        authGuard();
+
+        const client = mqtt.connect(MQTT_CFG.url, { ...MQTT_CFG.options, clientId: getClientId('tools') });
+
+        const CIRCUMFERENCE = 314; // 2 * PI * 50
+
+        function updateGauge(id, value, max = 100) {
+            const circle = document.getElementById(id + 'Cir');
+            const text = document.getElementById(id + 'Val');
+            if (circle && text) {
+                const offset = CIRCUMFERENCE - (value / max) * CIRCUMFERENCE;
+                circle.style.strokeDashoffset = offset;
+                text.textContent = (id === 'tmp') ? Math.round(value) + '°C' : Math.round(value) + '%';
+            }
+        }
+
+        client.on('connect', () => {
+            console.log("Connected to System Monitor");
+            client.subscribe(['warehouse/system_info', 'warehouse/motor_data', 'warehouse/status']);
+        });
+
+        client.on('message', (topic, message) => {
+            try {
+                const data = JSON.parse(message.toString());
+                
+                if (topic === 'warehouse/system_info') {
+                    if (data.cpu !== undefined) updateGauge('cpu', data.cpu);
+                    if (data.ram !== undefined) updateGauge('ram', data.ram);
+                    if (data.temp !== undefined) updateGauge('tmp', data.temp);
+                }
+
+                if (topic === 'warehouse/status') {
+                    const plcEl = document.getElementById('plcStatus');
+                    const rfidEl = document.getElementById('rfidStatus');
+                    if (data.plc !== undefined) {
+                        const ok = data.plc === 'connected';
+                        plcEl.textContent = ok ? 'CONNECTED' : 'DISCONNECTED';
+                        plcEl.style.color = ok ? 'var(--success)' : 'var(--danger)';
+                    }
+                    if (data.rfid !== undefined) {
+                        const ok = data.rfid === 'ready';
+                        rfidEl.textContent = ok ? 'READY' : 'ERROR';
+                        rfidEl.style.color = ok ? 'var(--success)' : 'var(--danger)';
+                    }
+                }
+
+                if (topic === 'warehouse/motor_data') {
+                    // Cập nhật tốc độ băng tải
+                    if (data.m1) {
+                        document.getElementById('m1_speed').textContent = data.m1.speed + ' rpm';
+                        document.getElementById('m1_power').textContent = data.m1.power + ' W';
+                        document.getElementById('m1_led').className = data.m1.status === 'running' ? 'status-indicator on' : 'status-indicator';
+                    }
+                    // Cập nhật góc độ xoay RFID
+                    if (data.m4) {
+                        document.getElementById('m4_angle').textContent = data.m4.angle + '°';
+                        document.getElementById('m4_temp').textContent = data.m4.temp + '°C';
+                        document.getElementById('m4_led').className = data.m4.status === 'running' ? 'status-indicator on' : 'status-indicator';
+                    }
+                }
+            } catch(e) { console.log("Lỗi parse dữ liệu"); }
+        });
+
+        setInterval(() => {
+            document.getElementById('realTimeClock').textContent = new Date().toLocaleTimeString('vi-VN');
+        }, 1000);
+
+        window.addEventListener('beforeunload', () => { if (client && client.connected) client.end(true); });
+    </script>
+</body>
+</html>

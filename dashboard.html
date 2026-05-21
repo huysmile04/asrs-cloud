@@ -4,227 +4,112 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Hệ Thống Lưu Kho Tự Động</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: Arial, sans-serif;
+        :root {
+            --primary: #00529c;
+            --danger: #ef4444;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-sub: #64748b;
+            --border: #e2e8f0;
         }
 
-        body {
-            background-color: #f4f4f4;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        html, body { height: 100%; }
+        body { background-color: var(--bg); display: flex; flex-direction: column; }
 
         header {
-            background-color: #e5e5e5;
-            padding: 15px 40px;
-            border-bottom: 2px solid #ccc;
+            background: var(--card-bg);
+            padding: 20px 60px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            flex-shrink: 0;
         }
-
-        .logo {
-            display: flex;
-            align-items: center;
-        }
-
-        .logo img {
-            height: 40px;
-            margin-right: 10px;
-        }
-
-        .user-info {
-            color: #000;
-            font-weight: bold;
-        }
-
+        .logo { display: flex; align-items: center; }
+        .logo img { height: 48px; }
+        .user-info { color: var(--text-sub); font-weight: 600; font-size: 18px; }
         .logout-btn {
-            background-color: #c9302c;
-            color: white;
-            border: none;
-            padding: 8px 20px;
-            font-size: 14px;
-            border-radius: 4px;
-            cursor: pointer;
+            background: var(--danger); color: white; border: none;
+            padding: 13px 30px; font-size: 16px; border-radius: 10px;
+            cursor: pointer; font-weight: 700; transition: 0.2s;
         }
-
-        .logout-btn:hover {
-            background-color: #ac2925;
-        }
+        .logout-btn:hover { opacity: 0.85; transform: translateY(-1px); }
 
         main {
-            padding: 40px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 40px 60px 50px;
+            width: 100%;
         }
 
-        .dashboard-title {
-            font-size: 32px;
-            margin-bottom: 30px;
-            color: #333;
-            text-align: center;
-        }
+        .dashboard-title { font-size: 38px; font-weight: 800; color: var(--text-main); margin-bottom: 8px; }
+        .dashboard-subtitle { color: var(--text-sub); margin-bottom: 35px; font-size: 18px; }
 
         .dashboard-grid {
+            flex: 1;
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 28px;
         }
 
         .dashboard-card {
-            background-color: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .dashboard-card h3 {
-            margin-bottom: 15px;
-            color: #333;
-        }
-
-        .dashboard-card p {
-            color: #666;
-            line-height: 1.6;
-        }
-
-        .dashboard-card a {
-            display: inline-block;
-            margin-top: 15px;
-            color: #c9302c;
-            text-decoration: none;
-            font-weight: bold;
-        }
-
-        .dashboard-card a:hover {
-            text-decoration: underline;
-        }
-
-        /* --- LOGS TABLE STYLES --- */
-        .logs-section {
-            background: #ffffff;
-            border-radius: 16px;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.06);
-            overflow: hidden;
-        }
-
-        .logs-header {
-            padding: 20px 30px;
-            border-bottom: 1px solid #eee;
+            background: var(--card-bg);
+            padding: 50px 40px;
+            border-radius: 24px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background-color: #fff;
+            flex-direction: column;
         }
+        .dashboard-card:hover { transform: translateY(-6px); box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
 
-        .logs-header h3 {
-            color: #1a252f;
-            font-size: 22px;
+        .card-icon { font-size: 64px; margin-bottom: 28px; }
+        .card-title-text { font-size: 26px; font-weight: 800; color: var(--text-main); margin-bottom: 14px; }
+        .dashboard-card p { color: var(--text-sub); font-size: 17px; line-height: 1.75; flex: 1; margin-bottom: 30px; }
+        .card-link {
+            display: inline-flex; align-items: center; gap: 8px;
+            color: white; padding: 16px 28px; border-radius: 12px;
+            font-size: 16px; font-weight: 700; text-decoration: none; transition: 0.2s;
+            align-self: flex-start;
         }
+        .card-link:hover { opacity: 0.85; transform: translateY(-1px); }
 
-        .export-btn {
-            background-color: #2ecc71;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: opacity 0.2s;
+        @media (max-width: 1100px) {
+            header { padding: 16px 30px; }
+            main { padding: 30px 30px 40px; }
+            .dashboard-grid { grid-template-columns: repeat(2, 1fr); gap: 20px; }
         }
-
-        .export-btn:hover {
-            opacity: 0.8;
+        @media (max-width: 768px) {
+            header { padding: 14px 20px; }
+            .logo img { height: 36px; }
+            .user-info { font-size: 14px; }
+            .logout-btn { padding: 10px 18px; font-size: 14px; }
+            main { padding: 20px 20px 30px; }
+            .dashboard-title { font-size: 26px; }
+            .dashboard-subtitle { font-size: 15px; margin-bottom: 20px; }
+            .dashboard-grid { gap: 16px; }
+            .dashboard-card { padding: 30px 24px; border-radius: 18px; }
+            .card-icon { font-size: 46px; margin-bottom: 18px; }
+            .card-title-text { font-size: 20px; margin-bottom: 10px; }
+            .dashboard-card p { font-size: 14px; margin-bottom: 20px; }
+            .card-link { padding: 13px 20px; font-size: 14px; }
         }
-
-        .logs-table {
-            width: 100%;
-            border-collapse: collapse;
+        @media (max-width: 480px) {
+            header { padding: 12px 16px; }
+            main { padding: 16px 16px 24px; }
+            .dashboard-title { font-size: 22px; }
+            .dashboard-subtitle { font-size: 13px; }
+            .dashboard-grid { grid-template-columns: 1fr; gap: 14px; }
+            .dashboard-card { padding: 24px 20px; }
         }
-
-        .logs-table th, .logs-table td {
-            padding: 16px 30px;
-            border-bottom: 1px solid #f0f0f0;
-        }
-
-        .logs-table th {
-            background-color: #f8fafc;
-            color: #64748b;
-            font-weight: bold;
-            font-size: 13px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .logs-table tbody tr {
-            transition: background-color 0.2s;
-        }
-
-        .logs-table tbody tr:hover {
-            background-color: #f1f5f9;
-        }
-
-        .logs-table td {
-            font-size: 15px;
-            color: #334155;
-        }
-
-        .time-col {
-            font-family: monospace;
-            font-size: 14px;
-            color: #64748b;
-        }
-
-        .slot-col {
-            font-weight: bold;
-            color: #0f172a;
-        }
-
-        .badge {
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: bold;
-            display: inline-block;
-            text-align: center;
-            min-width: 80px;
-        }
-
-        .badge-import {
-            background-color: #e6f4ea;
-            color: #1e8e3e;
-            border: 1px solid #ceead6;
-        }
-
-        .badge-export {
-            background-color: #fce8e6;
-            color: #d93025;
-            border: 1px solid #fad2cf;
-        }
-
-        /* --- CONNECTION STATUS & NOTIFICATIONS --- */
-        #connection-status, #notification {
-            position: fixed;
-            font-family: 'Segoe UI', sans-serif;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            border-radius: 8px;
-            font-weight: bold;
-            z-index: 1000;
-            font-size: 14px;
-        }
-
-        #connection-status {
-            top: 20px;
-            right: 20px;
-            min-width: 250px;
-        }
-
-        #notification {
-            top: 80px;
-            right: 20px;
-            min-width: 280px;
-        }
-
     </style>
 </head>
 <body>
@@ -232,34 +117,37 @@
         <div class="logo">
             <a href="index.html"><img src="ute_logo.png" alt="HCMUTE Logo"></a>
         </div>
-        <div class="user-info">
-            Xin chào, Admin
-        </div>
+        <div class="user-info" id="usernameDisplay">Xin chào, Admin</div>
         <button class="logout-btn" onclick="logout()">Đăng xuất</button>
     </header>
 
     <main>
-        <h1 class="dashboard-title">Dashboard - Hệ Thống Lưu Kho Tự Động</h1>
+        <h1 class="dashboard-title">Dashboard</h1>
+        <p class="dashboard-subtitle">Hệ thống lưu kho tự động AS/RS — HCMUTE</p>
         <div class="dashboard-grid">
             <div class="dashboard-card">
-                <h3>Warehouse Map</h3>
-                <p>Xem sơ đồ kho hàng và vị trí các kệ lưu trữ.</p>
-                <a href="warehouse.html" style="background:#00529c; color:white; padding:12px 20px; border-radius:6px; text-decoration:none; display:inline-block;">Mở Warehouse Map</a>
+                <div class="card-icon">🗺️</div>
+                <div class="card-title-text">Warehouse Map</div>
+                <p>Xem sơ đồ kho, quản lý slot và thực hiện thao tác Import / Export hàng hóa.</p>
+                <a href="warehouse.html" class="card-link" style="background:var(--primary);">Mở Warehouse Map →</a>
             </div>
             <div class="dashboard-card">
-                <h3>Operation Logs</h3>
-                <p>Xem nhật ký hoạt động của hệ thống lưu kho.</p>
-                <a href="logs.html" style="background:#e94560; color:white; padding:12px 20px; border-radius:6px; text-decoration:none; display:inline-block;">Mở Operation Logs</a>
+                <div class="card-icon">📋</div>
+                <div class="card-title-text">Operation Logs</div>
+                <p>Xem nhật ký hoạt động real-time của hệ thống được cập nhật trực tiếp qua MQTT.</p>
+                <a href="logs.html" class="card-link" style="background:#e94560;">Mở Operation Logs →</a>
             </div>
             <div class="dashboard-card">
-                <h3>System Tools</h3>
-                <p>Công cụ quản lý và cấu hình hệ thống.</p>
-                <a href="warehouse.html" style="background:#27ae60; color:white; padding:12px 20px; border-radius:6px; text-decoration:none; display:inline-block;">Mở System Tools</a>
+                <div class="card-icon">🔧</div>
+                <div class="card-title-text">System Tools</div>
+                <p>Giám sát CPU, RAM, nhiệt độ Raspberry Pi và trạng thái vận hành các động cơ.</p>
+                <a href="tools.html" class="card-link" style="background:var(--success);">Mở System Tools →</a>
             </div>
             <div class="dashboard-card">
-                <h3>Reports</h3>
-                <p>Báo cáo thống kê và hiệu suất hệ thống.</p>
-                <a href="#" style="background:#333; color:white; padding:12px 20px; border-radius:6px; text-decoration:none; display:inline-block;">Xem chi tiết</a>
+                <div class="card-icon">📊</div>
+                <div class="card-title-text">Reports</div>
+                <p>Báo cáo thống kê, biểu đồ xu hướng xuất nhập và xuất dữ liệu file Excel.</p>
+                <a href="report.html" class="card-link" style="background:var(--warning);">Mở Báo cáo →</a>
             </div>
         </div>
     </main>

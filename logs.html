@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Operation Logs - HCMUTE</title>
     
+    <script src="config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mqtt@5.3.4/dist/mqtt.min.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.17.0/dist/xlsx.full.min.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" crossorigin="anonymous"></script>
@@ -67,8 +68,29 @@
         .badge-import { background-color: #dcfce7; color: #166534; }
         .badge-export { background-color: #fee2e2; color: #991b1b; }
 
-        @media (max-width: 1100px) { .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .content-grid { grid-template-columns: 1fr; } }
-        @media (max-width: 680px) { .page-header { flex-direction: column; align-items: flex-start; } .header-actions { width: 100%; justify-content: flex-start; } .metric-card { padding: 20px; } th, td { padding: 14px 16px; } }
+        /* === RESPONSIVE === */
+        @media (max-width: 1100px) {
+            .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .content-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 680px) {
+            body { padding: 16px 12px; }
+            .page-header { flex-direction: column; align-items: flex-start; gap: 14px; }
+            .header-actions { width: 100%; justify-content: flex-start; flex-wrap: wrap; gap: 8px; }
+            .btn-secondary, .btn-primary, .btn-warning { padding: 10px 14px; font-size: 13px; }
+            .page-title { font-size: 22px; }
+            .metric-card { padding: 18px 16px; }
+            .metric-card .metric-value { font-size: 26px; }
+            .panel-card .panel-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+            th, td { padding: 12px 14px; font-size: 13px; }
+            .table-card .table-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+        }
+        @media (max-width: 420px) {
+            .summary-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+            .metric-card .metric-value { font-size: 22px; }
+            .page-title { font-size: 20px; }
+            body { padding: 12px 10px; }
+        }
     </style>
 </head>
 <body>
@@ -77,7 +99,7 @@
         <div class="page-header">
             <div>
                 <div class="breadcrumbs">
-                    <a href="warehouse.html">Warehouse Map</a>
+                    <a href="dashboard.html">Dashboard</a>
                     <span>›</span>
                     <span>Operation Logs</span>
                 </div>
@@ -87,7 +109,8 @@
                 </p>
             </div>
             <div class="header-actions">
-                <button class="btn-secondary" onclick="window.location.href='warehouse.html'">Quay lại Dashboard</button>
+                <button class="btn-secondary" onclick="window.location.href='dashboard.html'">Back to Dashboard</button>
+                <button class="btn-secondary" onclick="window.location.href='warehouse.html'">Warehouse Map</button>
                 <button class="btn-primary" onclick="exportData()">Xuất Excel</button>
             </div>
         </div>
@@ -147,10 +170,7 @@
                 <div class="table-card">
                     <div class="table-header">
                         <h3>Bảng nhật ký hoạt động</h3>
-                        <div>
-                            <button class="btn-warning" onclick="insertTestData()" style="margin-right: 10px;">Bơm dữ liệu Test</button>
-                            <button class="btn-primary" onclick="exportData()">Xuất CSV / Excel</button>
-                        </div>
+                        <button class="btn-primary" onclick="exportData()">Xuất CSV / Excel</button>
                     </div>
                     <div class="table-caption">Các hoạt động mới nhất sẽ tự động xuất hiện tại đây. Nhấn F12 chọn Console để xem Log.</div>
                     <div class="table-wrapper">
@@ -174,22 +194,11 @@
     </div>
 
     <script>
-        const CFG = { 
-            url: 'wss://5031841c1f8d4218bafa640220641d55.s1.eu.hivemq.cloud:8884/mqtt', 
-            opt: { 
-                username: 'lhuy04', 
-                password: 'Hcmute2026', 
-                protocol: 'wss', 
-                port: 8884,
-                clientId: 'logs_client_' + Math.random().toString(16).substr(2, 8),
-                clean: true, 
-                connectTimeout: 4000
-            } 
-        };
 
         let client;
         let lastMsg = "";
-        let isFirstData = true; // Cờ đánh dấu để xóa dòng "Đang chờ dữ liệu..."
+        let isFirstData = true;
+        let cntTotal = 0, cntImp = 0, cntExp = 0;
 
         function connect() {
             if (typeof mqtt === 'undefined') {
@@ -200,24 +209,17 @@
             document.getElementById('statusPill').className = 'status-pill connecting';
             document.getElementById('statusPill').innerText = 'Đang kết nối...';
 
-            client = mqtt.connect(CFG.url, CFG.opt);
+            client = mqtt.connect(MQTT_CFG.url, { ...MQTT_CFG.options, clientId: getClientId('logs') });
             
             client.on('connect', () => {
                 document.getElementById('statusPill').className = 'status-pill connected';
                 document.getElementById('statusPill').innerText = 'Đã kết nối';
 
-                // Yêu cầu web lắng nghe các kênh
                 client.subscribe(['warehouse/history', 'warehouse/history_init', 'warehouse/error'], function(err) {
                     if (!err) {
-                        console.log("Đã mở cửa lắng nghe thành công. Chờ 0.5s để đồng bộ...");
-                        
-                        // FIX: Chờ đúng nửa giây (500ms) rồi mới yêu cầu Pi gửi lịch sử
                         setTimeout(() => {
-                            console.log("Đang gửi lệnh GET_HISTORY tới Pi...");
                             client.publish('warehouse/command', JSON.stringify({action: "GET_HISTORY"}));
                         }, 500);
-                    } else {
-                        console.error("Lỗi khi mở kênh lắng nghe: ", err);
                     }
                 });
             });
@@ -230,16 +232,13 @@
                 console.log(`[MQTT NHẬN ĐƯỢC] Topic: ${t} | Dữ liệu:`, d);
 
                 // KHI CÓ HOẠT ĐỘNG MỚI THEO THỜI GIAN THỰC
-                if (t === 'warehouse/history' && s !== lastMsg) { 
+                if (t === 'warehouse/history' && s !== lastMsg) {
                     if (d && typeof d === 'object') {
-                        const timeStr = String(d.time || d.timestamp || "");
-                        if (!timeStr.startsWith("22:")) {
-                            clearEmptyMessage();
-                            addRow(d); 
-                            updateStats();
-                        }
+                        clearEmptyMessage();
+                        addRow(d);
+                        updateStats();
                     }
-                    lastMsg = s; 
+                    lastMsg = s;
                 }
                 
                 // KHI NHẬN LỊCH SỬ BAN ĐẦU
@@ -259,22 +258,15 @@
                         return;
                     }
 
-                    // 1. Lọc bỏ các dòng có giờ bắt đầu bằng "22:"
-                    let filteredData = dataArray.filter(item => {
-                        const timeStr = String(item.time || item.timestamp || "");
-                        return !timeStr.startsWith("22:");
-                    });
-
-                    // 2. Sắp xếp dữ liệu từ Cũ -> Mới (Tăng dần)
-                    filteredData.sort((a, b) => {
+                    dataArray.sort((a, b) => {
                         const tA = String(a.time || a.timestamp || "");
                         const tB = String(b.time || b.timestamp || "");
                         return tA.localeCompare(tB);
                     });
 
-                    // 3. Render ra bảng (Xóa sạch bảng trước khi render)
+                    cntTotal = 0; cntImp = 0; cntExp = 0;
                     document.getElementById("logsBody").innerHTML = "";
-                    filteredData.forEach(l => addRow(l)); 
+                    dataArray.forEach(l => addRow(l));
                     updateStats();
                 }
 
@@ -299,47 +291,31 @@
 
         function addRow(raw) {
             const l = {
-                time: raw.time || raw.timestamp || '--:--:--',
-                slot: raw.slot || raw.slot_id || 'N/A',
-                act: (raw.act || raw.action || 'UNKNOWN').toUpperCase(),
-                item: raw.item || raw.item_name || '---'
+                time: escapeHtml(raw.time || raw.timestamp || '--:--:--'),
+                slot: escapeHtml(String(raw.slot || raw.slot_id || 'N/A')),
+                act:  escapeHtml((raw.act || raw.action || 'UNKNOWN').toUpperCase()),
+                item: escapeHtml(raw.item || raw.item_name || '---')
             };
+            cntTotal++;
+            if (l.act === 'IMPORT') cntImp++;
+            else if (l.act === 'EXPORT') cntExp++;
 
-            let badgeClass = "badge";
-            if (l.act === "IMPORT") badgeClass = "badge-import";
-            if (l.act === "EXPORT") badgeClass = "badge-export";
-
-            const row = `
+            const badgeClass = l.act === 'IMPORT' ? 'badge-import' : l.act === 'EXPORT' ? 'badge-export' : 'badge';
+            document.getElementById("logsBody").insertAdjacentHTML('afterbegin', `
                 <tr>
                     <td class="time-col">${l.time}</td>
-                    <td class="slot-col">${String(l.slot).includes('Slot') ? l.slot : 'Slot ' + l.slot}</td>
+                    <td class="slot-col">${l.slot.includes('Slot') ? l.slot : 'Slot ' + l.slot}</td>
                     <td><span class="badge ${badgeClass}">${l.act}</span></td>
                     <td>${l.item}</td>
                 </tr>
-            `;
-            
-            document.getElementById("logsBody").insertAdjacentHTML('afterbegin', row);
+            `);
         }
 
         function updateStats() {
-            const tbody = document.getElementById("logsBody");
-            const rows = tbody.getElementsByTagName("tr");
-            
-            let countImport = 0;
-            let countExport = 0;
-
-            for (let row of rows) {
-                if (row.innerText.includes('IMPORT')) countImport++;
-                if (row.innerText.includes('EXPORT')) countExport++;
-            }
-
-            document.getElementById('metricTotal').innerText = rows.length;
-            document.getElementById('metricImport').innerText = countImport;
-            document.getElementById('metricExport').innerText = countExport;
-            
-            if(rows.length > 0) {
-                document.getElementById('metricLastUpdate').innerText = new Date().toLocaleTimeString('vi-VN');
-            }
+            document.getElementById('metricTotal').innerText      = cntTotal;
+            document.getElementById('metricImport').innerText     = cntImp;
+            document.getElementById('metricExport').innerText     = cntExp;
+            if (cntTotal > 0) document.getElementById('metricLastUpdate').innerText = new Date().toLocaleTimeString('vi-VN');
         }
 
         function exportData() {
@@ -347,23 +323,7 @@
             XLSX.writeFile(wb, "Warehouse_Report.xlsx");
         }
 
-        // HÀM BƠM DỮ LIỆU ĐỂ BẠN TỰ TEST WEB
-        function insertTestData() {
-            clearEmptyMessage();
-            
-            // Tạo 3 dữ liệu ngẫu nhiên (1 cái bị lỗi giờ 22:, 2 cái bình thường)
-            const mockDataArray = [
-                { time: "08:15:30", slot: 1, act: "IMPORT", item: "Linh kiện A" },
-                { time: "22:45:00", slot: 2, act: "EXPORT", item: "Rác cần bị lọc" }, // Sẽ bị lọc mất
-                { time: "10:30:12", slot: 3, act: "EXPORT", item: "Sản phẩm B" }
-            ];
-
-            // Gửi thẳng vào logic của Web y như Pi gửi tới
-            client.emit('message', 'warehouse/history_init', JSON.stringify(mockDataArray));
-            
-            Swal.fire('Thành công', 'Đã bơm dữ liệu test. Nếu bạn thấy dữ liệu 08:15 và 10:30 (không có 22:45) tức là Code Web hoàn toàn đúng!', 'success');
-        }
-
+        window.addEventListener('beforeunload', () => { if (client && client.connected) client.end(true); });
         window.onload = connect;
     </script>
 </body>
