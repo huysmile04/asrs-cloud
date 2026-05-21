@@ -170,11 +170,17 @@ def monitor_logic():
                 sys_state["is_busy"] = is_busy
 
                 if is_done and is_busy:
-                    print(f"[{datetime.now().strftime('%H:%M:%S')}] PLC báo DONE! Tắt Busy...")
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] PLC bao DONE! Tat Busy...")
                     write_plc_bit(CONTROL_BYTE, BUSY_BIT, False)
                     write_plc_bit(CONTROL_BYTE, DONE_BIT, False)
                     sys_state["is_busy"]      = False
                     sys_state["current_slot"] = "N/A"
+                    # Thông báo web: hệ thống trở về IDLE
+                    db = load_json(DB_PATH, {})
+                    client.publish("warehouse/slot_data", json.dumps(db), retain=True)
+                    client.publish("warehouse/robot_state", json.dumps({
+                        "state": "IDLE", "slot": "N/A", "message": "He thong san sang"
+                    }))
             except:
                 pass
 
@@ -187,76 +193,137 @@ def monitor_logic():
 
         time.sleep(0.2)
 
-# ─── XỬ LÝ IMPORT / EXPORT ────────────────────────────────────────────────────
+# ─── TÌM Ô TRỐNG GẦN NHẤT ────────────────────────────────────────────────────
 
-def handle_import(sid, uid_from_web=""):
+def find_nearest_slot(db):
+    """Trả về slot_id trống đầu tiên (1→9), hoặc None nếu kho đầy."""
+    for i in range(1, 10):
+        if db.get(f"slot_{i}", {}).get("status", "Available") == "Available":
+            return i
+    return None
+
+# ─── XỬ LÝ IMPORT / EXPORT (CHẾ ĐỘ TỰ ĐỘNG) ──────────────────────────────────
+
+def handle_import(uid_from_web=""):
+    """Pi tự chọn ô trống gần nhất, không cần Web chỉ định slot."""
     global sys_state
     if sys_state["is_busy"]:
         client.publish("warehouse/error", "Hệ thống đang bận, vui lòng chờ!")
         return
 
-    # Thông báo đang chờ RFID
+    db      = load_json(DB_PATH, {})
+    slot_id = find_nearest_slot(db)
+    if slot_id is None:
+        client.publish("warehouse/error", "Kho đầy! Không còn ô trống.")
+        return
+
+    # Thông báo chờ RFID
     client.publish("warehouse/robot_state", json.dumps({
         "state":   "WAITING_RFID",
-        "slot":    str(sid),
-        "message": f"Chờ quét RFID cho ô {sid}"
+        "slot":    str(slot_id),
+        "message": "Đang chờ quét thẻ RFID..."
     }))
 
-    # Dùng UID từ Web nếu có, không thì đọc thẻ vật lý
+    # Lấy UID từ Web hoặc đọc thẻ vật lý
     if uid_from_web and str(uid_from_web).strip() not in ("", "N/A"):
         tag_uid = str(uid_from_web).strip()
     else:
         rfid_id, _ = reader.read()
         tag_uid    = str(rfid_id)
 
+    # Thông báo đang di chuyển
+    client.publish("warehouse/robot_state", json.dumps({
+        "state":   "MOVING",
+        "slot":    str(slot_id),
+        "message": f"Đang di chuyển đến Slot {slot_id}..."
+    }))
+
     # Ra lệnh PLC
-    write_plc_slot(int(sid) - 1)         # slot 1-9 → index 0-8
+    write_plc_slot(slot_id - 1)
     write_plc_bit(CONTROL_BYTE, BUSY_BIT, True)
     sys_state["is_busy"]      = True
-    sys_state["current_slot"] = str(sid)
+    sys_state["current_slot"] = str(slot_id)
     publish_device_status()
     publish_motor_data()
 
     # Lưu DB & ghi lịch sử
-    db = load_json(DB_PATH, {})
-    db[f"slot_{sid}"] = {
-        "id":        sid,
+    db[f"slot_{slot_id}"] = {
+        "id":        slot_id,
         "status":    "Occupied",
         "uid":       tag_uid,
         "item_name": "Linh kiện",
         "time":      datetime.now().strftime("%H:%M:%S")
     }
     save_json(DB_PATH, db)
-    log_event(sid, "IMPORT", "Linh kiện", tag_uid)
+    client.publish("warehouse/slot_data", json.dumps(db), retain=True)
+    log_event(slot_id, "IMPORT", "Linh kiện", tag_uid)
+    client.publish("warehouse/ack", json.dumps({
+        "action":  "IMPORT",
+        "slot":    slot_id,
+        "uid":     tag_uid,
+        "message": f"Nhập hàng thành công! Slot {slot_id} — UID: {tag_uid}"
+    }))
 
-    # Xác nhận cho warehouse.html
-    client.publish("warehouse/ack", f"IMPORT thành công! Slot {sid} — UID: {tag_uid}")
-
-def handle_export(sid):
+def handle_export(uid_or_slot):
+    """Tìm slot theo UID hoặc slot_id rồi xuất hàng."""
     global sys_state
     if sys_state["is_busy"]:
         client.publish("warehouse/error", "Hệ thống đang bận, vui lòng chờ!")
         return
 
-    db        = load_json(DB_PATH, {})
-    item_info = db.get(f"slot_{sid}", {})
-    tag_uid   = item_info.get("uid", "N/A")
+    db      = load_json(DB_PATH, {})
+    slot_id = None
+    tag_uid = "N/A"
+
+    # Thử tìm theo slot_id trước
+    try:
+        sid  = int(str(uid_or_slot))
+        info = db.get(f"slot_{sid}", {})
+        if info.get("status") == "Occupied":
+            slot_id = sid
+            tag_uid = info.get("uid", "N/A")
+    except (ValueError, TypeError):
+        pass
+
+    # Nếu không tìm được theo slot, tìm theo UID
+    if slot_id is None:
+        for i in range(1, 10):
+            info = db.get(f"slot_{i}", {})
+            if str(info.get("uid", "")) == str(uid_or_slot) and info.get("status") == "Occupied":
+                slot_id = i
+                tag_uid = info.get("uid", "N/A")
+                break
+
+    if slot_id is None:
+        client.publish("warehouse/error", "Không tìm thấy hàng cần xuất!")
+        return
+
+    # Thông báo đang di chuyển
+    client.publish("warehouse/robot_state", json.dumps({
+        "state":   "MOVING",
+        "slot":    str(slot_id),
+        "message": f"Đang di chuyển đến Slot {slot_id}..."
+    }))
 
     # Ra lệnh PLC
-    write_plc_slot(int(sid) - 1)
+    write_plc_slot(slot_id - 1)
     write_plc_bit(CONTROL_BYTE, BUSY_BIT, True)
     sys_state["is_busy"]      = True
-    sys_state["current_slot"] = str(sid)
+    sys_state["current_slot"] = str(slot_id)
     publish_device_status()
     publish_motor_data()
 
     # Xóa DB & ghi lịch sử
-    db[f"slot_{sid}"] = {"id": sid, "status": "Available"}
+    db[f"slot_{slot_id}"] = {"id": slot_id, "status": "Available"}
     save_json(DB_PATH, db)
-    log_event(sid, "EXPORT", "Xuất kho", tag_uid)
-
-    # Xác nhận cho warehouse.html
-    client.publish("warehouse/ack", f"EXPORT thành công! Slot {sid} — UID: {tag_uid}")
+    client.publish("warehouse/slot_data", json.dumps(db), retain=True)
+    log_event(slot_id, "EXPORT", "Xuất kho", tag_uid)
+    client.publish("warehouse/ack", json.dumps({
+        "action":  "EXPORT",
+        "slot":    slot_id,
+        "uid":     tag_uid,
+        "message": f"Xuất hàng thành công! Slot {slot_id} — UID: {tag_uid}"
+    }))
 
 # ─── XỬ LÝ LỆNH TỪ WEB (warehouse/command) ───────────────────────────────────
 
@@ -271,30 +338,32 @@ def on_message(client, userdata, msg):
             write_plc_slot(-1)
             sys_state["is_busy"]      = False
             sys_state["current_slot"] = "N/A"
-            client.publish("warehouse/ack", "Đã RESET hệ thống!")
+            client.publish("warehouse/robot_state", json.dumps({"state": "IDLE", "slot": "N/A", "message": "Da RESET he thong!"}))
+            client.publish("warehouse/ack", json.dumps({"action": "RESET", "message": "Da RESET he thong!"}))
             publish_device_status()
             publish_motor_data()
 
         elif act == "IMPORT":
             threading.Thread(
                 target=handle_import,
-                args=(cmd.get("slot_id"), cmd.get("uid", "")),
+                args=(cmd.get("uid", ""),),
                 daemon=True
             ).start()
 
         elif act == "EXPORT":
+            uid_val = cmd.get("uid") or cmd.get("slot_id", "")
             threading.Thread(
                 target=handle_export,
-                args=(cmd.get("slot_id"),),
+                args=(uid_val,),
                 daemon=True
             ).start()
 
         elif act == "GET_STATUS":
-            # Trả về trạng thái PLC & RFID cho tools.html
             publish_device_status()
+            db = load_json(DB_PATH, {})
+            client.publish("warehouse/slot_data", json.dumps(db), retain=True)
 
         elif act == "GET_HISTORY":
-            # Trả toàn bộ lịch sử cho logs.html & report.html
             client.publish("warehouse/history_init", json.dumps(load_json(HIST_PATH, [])))
 
     except Exception as e:
