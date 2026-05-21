@@ -44,6 +44,9 @@
         .bg-blue   { background-color: #00529c; }
         .bg-orange { background-color: #f39c12; }
 
+        .cancel-btn { width: 100%; display: none; background: #c0392b; font-size: 15px; padding: 13px; }
+        .cancel-btn:hover:not(:disabled) { background: #a93226; }
+
         /* === STATUS BOX === */
         .sys-status-box {
             border: 2px solid #ccc; border-radius: 10px; padding: 16px 12px;
@@ -157,6 +160,7 @@
                     <button class="btn bg-blue" id="importBtn" onclick="processAction('IMPORT')" disabled>📥 IMPORT</button>
                     <button class="btn bg-red"  id="exportBtn" onclick="processAction('EXPORT')" disabled>📤 EXPORT</button>
                 </div>
+                <button class="btn cancel-btn" id="cancelBtn" onclick="cancelAction()">⛔ Hủy thao tác</button>
             </div>
 
             <!-- WAREHOUSE GRID -->
@@ -178,6 +182,7 @@
         let isSystemBusy   = false;
         let activeSlot     = null;   // slot đang được Pi vận hành
         let selectedSlotId = null;   // slot user đang chọn để EXPORT
+        let currentAction  = null;   // 'IMPORT' | 'EXPORT' | null
         let mqttClient     = null;
         let timeInterval   = null;
 
@@ -268,6 +273,11 @@
             const off = !isPlcConnected || isSystemBusy;
             document.getElementById('importBtn').disabled = off;
             document.getElementById('exportBtn').disabled = off;
+            const cancelBtn = document.getElementById('cancelBtn');
+            cancelBtn.style.display = (isSystemBusy && isPlcConnected) ? 'block' : 'none';
+            if (currentAction === 'IMPORT') cancelBtn.textContent = '⛔ Hủy nhập hàng';
+            else if (currentAction === 'EXPORT') cancelBtn.textContent = '⛔ Hủy xuất hàng';
+            else cancelBtn.textContent = '⛔ Hủy thao tác';
         }
 
         // ── XỬ LÝ MQTT MESSAGES TỪ PI ─────────────────────────────────────────
@@ -278,19 +288,51 @@
 
             activeSlot     = (state !== 'IDLE') ? slot : null;
             isSystemBusy   = (state !== 'IDLE');
+            if (state === 'IDLE') currentAction = null;
 
-            setStatusDisplay(state, msg);
+            const sub = slot ? `Slot ${slot}` : '';
+            setStatusDisplay(state, sub);
             updateStatusBar();
             updateButtons();
             initGrid();
         }
 
-        function handleAck(data) {
-            const msg    = typeof data === 'string' ? data : (data.message || 'Thao tác thành công!');
-            const action = typeof data === 'object' ? (data.action || '') : '';
+        function cancelAction() {
+            const label = currentAction === 'IMPORT' ? 'nhập hàng' : currentAction === 'EXPORT' ? 'xuất hàng' : 'thao tác';
+            Swal.fire({
+                title: 'Xác nhận hủy?',
+                text: `Bạn có chắc muốn hủy ${label} không? Robot sẽ dừng ngay lập tức.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#c0392b',
+                cancelButtonColor: '#555',
+                confirmButtonText: 'Hủy thao tác',
+                cancelButtonText: 'Tiếp tục'
+            }).then(result => {
+                if (!result.isConfirmed) return;
+                if (mqttClient && mqttClient.connected) {
+                    mqttClient.publish('warehouse/command', JSON.stringify({ action: 'EMERGENCY_RESET' }));
+                }
+                isSystemBusy  = false;
+                activeSlot    = null;
+                currentAction = null;
+                setStatusDisplay('IDLE');
+                updateStatusBar();
+                updateButtons();
+                initGrid();
+                Swal.fire({ title: 'Đã hủy!', text: 'Lệnh reset đã được gửi tới Pi.', icon: 'info', timer: 2500, showConfirmButton: false });
+            });
+        }
 
-            isSystemBusy = false;
-            activeSlot   = null;
+        function handleAck(data) {
+            const action = typeof data === 'object' ? (data.action || '') : '';
+            const slot   = typeof data === 'object' && data.slot ? `Slot ${data.slot}` : '';
+            const uid    = typeof data === 'object' && data.uid  ? `UID: ${data.uid}`  : '';
+            const msg    = [slot, uid].filter(Boolean).join(' — ') || 'Thao tac thanh cong!';
+
+            isSystemBusy  = false;
+            activeSlot    = null;
+            currentAction = null;
             setStatusDisplay('IDLE');
             updateStatusBar();
             updateButtons();
@@ -327,13 +369,14 @@
 
             // Gửi lệnh lên Pi — Pi tự quyết định slot cho IMPORT
             const cmd = { action: actionType, uid: uid };
-            if (actionType === 'EXPORT' && !uid && selectedSlotId) {
+            if (actionType === 'EXPORT' && selectedSlotId) {
                 cmd.slot_id = selectedSlotId;
             }
 
-            isSystemBusy = true;
+            isSystemBusy  = true;
+            currentAction = actionType;
             setStatusDisplay(actionType === 'IMPORT' ? 'WAITING_RFID' : 'MOVING',
-                             actionType === 'IMPORT' ? 'Đã gửi lệnh, chờ Pi phản hồi...' : `Đang xuất hàng...`);
+                             actionType === 'IMPORT' ? '' : (selectedSlotId ? `Slot ${selectedSlotId}` : ''));
             updateStatusBar();
             updateButtons();
 
@@ -388,8 +431,9 @@
                 if (t === 'warehouse/slot_data')   syncGridFromPi(data);
                 if (t === 'warehouse/error') {
                     const msg = typeof data === 'string' ? data : (data.message || JSON.stringify(data));
-                    isSystemBusy = false;
-                    activeSlot   = null;
+                    isSystemBusy  = false;
+                    activeSlot    = null;
+                    currentAction = null;
                     setStatusDisplay('ERROR', msg);
                     updateStatusBar();
                     updateButtons();

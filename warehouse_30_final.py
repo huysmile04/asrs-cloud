@@ -264,32 +264,41 @@ def handle_import(uid_from_web=""):
         "message": f"Nhập hàng thành công! Slot {slot_id} — UID: {tag_uid}"
     }))
 
-def handle_export(uid_or_slot):
-    """Tìm slot theo UID hoặc slot_id rồi xuất hàng."""
+def handle_export(slot_id_direct=None, uid_search=""):
+    """Xuất hàng: ưu tiên slot_id tuyệt đối, chỉ tìm UID khi không có slot_id."""
     global sys_state
     if sys_state["is_busy"]:
-        client.publish("warehouse/error", "Hệ thống đang bận, vui lòng chờ!")
+        client.publish("warehouse/error", "He thong dang ban, vui long cho!")
         return
 
     db      = load_json(DB_PATH, {})
     slot_id = None
     tag_uid = "N/A"
 
-    # Thử tìm theo slot_id trước
-    try:
-        sid  = int(str(uid_or_slot))
-        info = db.get(f"slot_{sid}", {})
-        if info.get("status") == "Occupied":
-            slot_id = sid
-            tag_uid = info.get("uid", "N/A")
-    except (ValueError, TypeError):
-        pass
+    # Ưu tiên 1: slot_id trực tiếp (user click trên grid) — không fallback sang UID
+    if slot_id_direct is not None:
+        try:
+            sid  = int(str(slot_id_direct))
+            if 1 <= sid <= 9:
+                info = db.get(f"slot_{sid}", {})
+                if info.get("status") == "Occupied":
+                    slot_id = sid
+                    tag_uid = info.get("uid", "N/A")
+                else:
+                    client.publish("warehouse/error", f"Slot {sid} trong! Khong co hang de xuat.")
+                    return
+            else:
+                client.publish("warehouse/error", "So slot khong hop le (1-9)!")
+                return
+        except (ValueError, TypeError):
+            client.publish("warehouse/error", "So slot khong hop le!")
+            return
 
-    # Nếu không tìm được theo slot, tìm theo UID
-    if slot_id is None:
+    # Ưu tiên 2: tìm theo UID (chỉ khi không có slot_id)
+    elif uid_search:
         for i in range(1, 10):
             info = db.get(f"slot_{i}", {})
-            if str(info.get("uid", "")) == str(uid_or_slot) and info.get("status") == "Occupied":
+            if str(info.get("uid", "")) == str(uid_search) and info.get("status") == "Occupied":
                 slot_id = i
                 tag_uid = info.get("uid", "N/A")
                 break
@@ -351,10 +360,12 @@ def on_message(client, userdata, msg):
             ).start()
 
         elif act == "EXPORT":
-            uid_val = cmd.get("uid") or cmd.get("slot_id", "")
             threading.Thread(
                 target=handle_export,
-                args=(uid_val,),
+                kwargs={
+                    "slot_id_direct": cmd.get("slot_id"),
+                    "uid_search":     str(cmd.get("uid") or "").strip()
+                },
                 daemon=True
             ).start()
 
