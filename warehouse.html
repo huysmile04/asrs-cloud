@@ -351,8 +351,18 @@
             document.getElementById('uidInput').value = '';
             selectedSlotId = null;
 
-            Swal.fire({ title: action ? `${action} thành công!` : 'Hoàn thành!',
-                        text: msg, icon: 'success', timer: 3000, showConfirmButton: false });
+            if (action === 'IMPORT' && Swal.isVisible()) {
+                Swal.hideLoading();
+                Swal.update({
+                    title: 'Da nhan hang xong!',
+                    html:  `<span style="font-size:40px">✅</span><br><b>${msg}</b>`,
+                    showConfirmButton: false,
+                });
+                setTimeout(() => Swal.close(), 3000);
+            } else {
+                Swal.fire({ title: action ? `${action} thanh cong!` : 'Hoan thanh!',
+                            text: msg, icon: 'success', timer: 3000, showConfirmButton: false });
+            }
         }
 
         // ── PROCESS ACTION (AUTO MODE) ─────────────────────────────────────────
@@ -382,6 +392,17 @@
 
             if (mqttClient && mqttClient.connected) {
                 mqttClient.publish('warehouse/command', JSON.stringify(cmd));
+            }
+
+            if (actionType === 'IMPORT') {
+                Swal.fire({
+                    title: 'Đang nhập hàng...',
+                    html:  'Chờ quét thẻ RFID và robot vận chuyển.<br><small style="color:#aaa">Hộp thoại tự đóng sau khi PLC xác nhận xong.</small>',
+                    allowOutsideClick: false,
+                    allowEscapeKey:    false,
+                    showConfirmButton: false,
+                    didOpen: () => Swal.showLoading()
+                });
             }
         }
 
