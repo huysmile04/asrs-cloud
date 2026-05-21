@@ -114,15 +114,31 @@ def publish_device_status():
 def publish_motor_data():
     """
     Publish trạng thái motor → tools.html nhận topic warehouse/motor_data.
-    Web expect:
-      m1 (băng tải): { "speed": int rpm, "power": float W, "status": "running"|"idle" }
-      m4 (xoay RFID): { "angle": int °,  "temp": float °C, "status": "running"|"idle" }
+    m1 (băng tải), m2 (Robot X-Y), m3 (trục nâng), m4 (xoay RFID)
     """
     running = sys_state["is_busy"]
+    slot    = sys_state["current_slot"]   # "N/A" hoặc "1"-"9"
+
+    try:
+        slot_num = int(slot)
+        slot_label = f"Slot {slot_num}"
+        level      = str(((slot_num - 1) // 3) + 1)   # slot 1-3→L1, 4-6→L2, 7-9→L3
+    except (ValueError, TypeError):
+        slot_label = "--"
+        level      = "--"
+
     client.publish("warehouse/motor_data", json.dumps({
         "m1": {
             "speed":  150 if running else 0,
             "power":  round(12.5 if running else 0.0, 1),
+            "status": "running" if running else "idle"
+        },
+        "m2": {
+            "slot":   slot_label,
+            "status": "running" if running else "idle"
+        },
+        "m3": {
+            "level":  level,
             "status": "running" if running else "idle"
         },
         "m4": {
@@ -292,6 +308,9 @@ if not os.path.exists(DB_PATH): save_json(DB_PATH, default_db)
 print("--- KHỞI ĐỘNG HỆ THỐNG AS/RS (9 Ô) ---")
 threading.Thread(target=monitor_logic, daemon=True).start()
 
+client.on_disconnect = lambda c, u, rc, p=None: print(f"[{datetime.now().strftime('%H:%M:%S')}] MQTT ngắt kết nối (rc={rc}), đang reconnect...")
+client.on_connect   = lambda c, u, f, rc, p=None: print(f"[{datetime.now().strftime('%H:%M:%S')}] MQTT kết nối thành công!")
+client.reconnect_delay_set(min_delay=2, max_delay=30)
 client.tls_set(cert_reqs=ssl.CERT_REQUIRED)
 client.username_pw_set("lhuy04", "Hcmute2026")
 client.on_message = on_message

@@ -217,7 +217,7 @@
                 <h3 class="card-title">📡 Thông tin MQTT Broker</h3>
                 <div class="m-data">
                     <div class="m-row"><span class="m-label">Server Host:</span><span class="m-val" style="font-size: 14px;">hivemq.cloud</span></div>
-                    <div class="m-row"><span class="m-label">Trạng thái:</span><span class="m-val" style="color: var(--success);">ONLINE</span></div>
+                    <div class="m-row"><span class="m-label">Trạng thái:</span><span class="m-val" id="brokerStatus" style="color:var(--text-sub)">Đang kết nối...</span></div>
                     <div class="m-row"><span class="m-label">Thời gian thực:</span><span class="m-val" id="realTimeClock">--:--:--</span></div>
                 </div>
             </div>
@@ -299,27 +299,35 @@
         }
 
         client.on('connect', () => {
-            console.log("Connected to System Monitor");
+            const el = document.getElementById('brokerStatus');
+            el.textContent = 'CONNECTED';
+            el.style.color = 'var(--success)';
             client.subscribe(['warehouse/system_info', 'warehouse/motor_data', 'warehouse/status']);
+        });
+
+        client.on('close', () => {
+            const el = document.getElementById('brokerStatus');
+            el.textContent = 'DISCONNECTED';
+            el.style.color = 'var(--danger)';
         });
 
         client.on('message', (topic, message) => {
             try {
                 const data = JSON.parse(message.toString());
-                
+
                 if (topic === 'warehouse/system_info') {
-                    if (data.cpu !== undefined) updateGauge('cpu', data.cpu);
-                    if (data.ram !== undefined) updateGauge('ram', data.ram);
-                    if (data.temp !== undefined) updateGauge('tmp', data.temp);
+                    if (data.cpu  !== undefined) updateGauge('cpu', data.cpu);
+                    if (data.ram  !== undefined) updateGauge('ram', data.ram);
+                    if (data.temp !== undefined) updateGauge('tmp', data.temp, 100);
                 }
 
                 if (topic === 'warehouse/status') {
-                    const plcEl = document.getElementById('plcStatus');
+                    const plcEl  = document.getElementById('plcStatus');
                     const rfidEl = document.getElementById('rfidStatus');
                     if (data.plc !== undefined) {
                         const ok = data.plc === 'connected';
-                        plcEl.textContent = ok ? 'CONNECTED' : 'DISCONNECTED';
-                        plcEl.style.color = ok ? 'var(--success)' : 'var(--danger)';
+                        plcEl.textContent  = ok ? 'CONNECTED' : 'DISCONNECTED';
+                        plcEl.style.color  = ok ? 'var(--success)' : 'var(--danger)';
                     }
                     if (data.rfid !== undefined) {
                         const ok = data.rfid === 'ready';
@@ -329,20 +337,26 @@
                 }
 
                 if (topic === 'warehouse/motor_data') {
-                    // Cập nhật tốc độ băng tải
                     if (data.m1) {
                         document.getElementById('m1_speed').textContent = data.m1.speed + ' rpm';
                         document.getElementById('m1_power').textContent = data.m1.power + ' W';
                         document.getElementById('m1_led').className = data.m1.status === 'running' ? 'status-indicator on' : 'status-indicator';
                     }
-                    // Cập nhật góc độ xoay RFID
+                    if (data.m2) {
+                        document.getElementById('m2_pos').textContent = data.m2.slot || '--';
+                        document.getElementById('m2_led').className = data.m2.status === 'running' ? 'status-indicator on' : 'status-indicator';
+                    }
+                    if (data.m3) {
+                        document.getElementById('m3_level').textContent = data.m3.level !== '--' ? 'Tang ' + data.m3.level : '--';
+                        document.getElementById('m3_led').className = data.m3.status === 'running' ? 'status-indicator on' : 'status-indicator';
+                    }
                     if (data.m4) {
                         document.getElementById('m4_angle').textContent = data.m4.angle + '°';
-                        document.getElementById('m4_temp').textContent = data.m4.temp + '°C';
+                        document.getElementById('m4_temp').textContent  = data.m4.temp  + '°C';
                         document.getElementById('m4_led').className = data.m4.status === 'running' ? 'status-indicator on' : 'status-indicator';
                     }
                 }
-            } catch(e) { console.log("Lỗi parse dữ liệu"); }
+            } catch(e) { console.log("Loi parse du lieu:", e); }
         });
 
         setInterval(() => {
