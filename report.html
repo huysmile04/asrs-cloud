@@ -512,11 +512,11 @@
         let filtered = [...allReportData];
 
         if (startDate || endDate) {
-            const today = new Date().toISOString().split('T')[0];
             filtered = filtered.filter(d => {
                 const t = String(d.time || d.timestamp || '');
-                // dữ liệu cũ "HH:MM:SS" không có ngày → gán hôm nay
-                const datePart = t.includes(' ') ? t.split(' ')[0] : today;
+                // dữ liệu cũ "HH:MM:SS" không có ngày → luôn hiển thị
+                if (!t.includes(' ')) return true;
+                const datePart = t.split(' ')[0];
                 if (startDate && datePart < startDate) return false;
                 if (endDate   && datePart > endDate)   return false;
                 return true;

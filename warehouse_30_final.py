@@ -119,10 +119,10 @@ def publish_motor_data():
 
     st = "running" if running else "idle"
     client.publish("warehouse/motor_data", json.dumps({
-        "m1": {"speed": 150 if running else 0, "power": 12.5 if running else 0.0, "status": st},
+        "m1": {"speed": 150 if running else 0, "status": st},
         "m2": {"slot":  slot_label, "status": st},
-        "m3": {"level": level,      "status": st},
-        "m4": {"angle": 90 if running else 0, "temp": 35, "status": st},
+        "m3": {"slot":  slot_label, "status": st},
+        "m4": {"conveyor": "on" if running else "off", "fan": "on" if running else "off", "status": st},
     }))
 
 # ── MONITOR LOOP ──────────────────────────────────────────────────────────────

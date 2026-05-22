@@ -228,48 +228,48 @@
             <div class="card">
                 <h3 class="card-title">⚙️ Trạng thái vận hành động cơ</h3>
                 <div class="motor-grid">
-                    <!-- Băng tải -->
+                    <!-- Trục Z -->
                     <div class="motor-card">
                         <div class="motor-header">
-                            <span>Băng tải chính</span>
-                            <div class="status-indicator on" id="m1_led"></div>
+                            <span>Trục Z</span>
+                            <div class="status-indicator" id="m1_led"></div>
                         </div>
                         <div class="m-data">
                             <div class="m-row"><span class="m-label">Tốc độ:</span><span class="m-val" id="m1_speed">0 rpm</span></div>
-                            <div class="m-row"><span class="m-label">Công suất:</span><span class="m-val" id="m1_power">0 W</span></div>
+                            <div class="m-row"><span class="m-label">Trạng thái:</span><span class="m-val" id="m1_status" style="color:var(--text-sub)">Đang dừng</span></div>
                         </div>
                     </div>
-                    <!-- Robot X-Y -->
+                    <!-- Trục X -->
                     <div class="motor-card">
                         <div class="motor-header">
-                            <span>Robot X-Y</span>
-                            <div class="status-indicator on" id="m2_led"></div>
+                            <span>Trục X</span>
+                            <div class="status-indicator" id="m2_led"></div>
                         </div>
                         <div class="m-data">
-                            <div class="m-row"><span class="m-label">Vị trí:</span><span class="m-val" id="m2_pos">Slot --</span></div>
-                            <div class="m-row"><span class="m-label">Tình trạng:</span><span class="m-val">Ổn định</span></div>
+                            <div class="m-row"><span class="m-label">Vị trí:</span><span class="m-val" id="m2_pos">--</span></div>
+                            <div class="m-row"><span class="m-label">Trạng thái:</span><span class="m-val" id="m2_status" style="color:var(--text-sub)">Đang dừng</span></div>
                         </div>
                     </div>
-                    <!-- Trục nâng -->
+                    <!-- Cơ cấu lấy hàng -->
                     <div class="motor-card">
                         <div class="motor-header">
-                            <span>Trục nâng hàng</span>
+                            <span>Cơ cấu lấy hàng</span>
                             <div class="status-indicator" id="m3_led"></div>
                         </div>
                         <div class="m-data">
-                            <div class="m-row"><span class="m-label">Tầng hiện tại:</span><span class="m-val" id="m3_level">--</span></div>
-                            <div class="m-row"><span class="m-label">Trạng thái:</span><span class="m-val">Dừng</span></div>
+                            <div class="m-row"><span class="m-label">Ô hiện tại:</span><span class="m-val" id="m3_slot">--</span></div>
+                            <div class="m-row"><span class="m-label">Trạng thái:</span><span class="m-val" id="m3_status" style="color:var(--text-sub)">Không lấy</span></div>
                         </div>
                     </div>
-                    <!-- Xoay RFID -->
+                    <!-- Động cơ phụ -->
                     <div class="motor-card">
                         <div class="motor-header">
-                            <span>Cơ cấu Xoay RFID</span>
-                            <div class="status-indicator on" id="m4_led"></div>
+                            <span>Động cơ</span>
+                            <div class="status-indicator" id="m4_led"></div>
                         </div>
                         <div class="m-data">
-                            <div class="m-row"><span class="m-label">Góc độ xoay:</span><span class="m-val" id="m4_angle" style="color: var(--primary);">0°</span></div>
-                            <div class="m-row"><span class="m-label">Nhiệt độ cục bộ:</span><span class="m-val" id="m4_temp">0°C</span></div>
+                            <div class="m-row"><span class="m-label">Băng tải:</span><span class="m-val" id="m4_conveyor" style="color:var(--text-sub)">Dừng</span></div>
+                            <div class="m-row"><span class="m-label">Quạt:</span><span class="m-val" id="m4_fan" style="color:var(--text-sub)">Dừng</span></div>
                         </div>
                     </div>
                 </div>
@@ -338,22 +338,35 @@
 
                 if (topic === 'warehouse/motor_data') {
                     if (data.m1) {
-                        document.getElementById('m1_speed').textContent = data.m1.speed + ' rpm';
-                        document.getElementById('m1_power').textContent = data.m1.power + ' W';
-                        document.getElementById('m1_led').className = data.m1.status === 'running' ? 'status-indicator on' : 'status-indicator';
+                        const r1 = data.m1.status === 'running';
+                        document.getElementById('m1_speed').textContent   = data.m1.speed + ' rpm';
+                        document.getElementById('m1_status').textContent  = r1 ? 'Đang chạy' : 'Đang dừng';
+                        document.getElementById('m1_status').style.color  = r1 ? 'var(--success)' : 'var(--danger)';
+                        document.getElementById('m1_led').className        = r1 ? 'status-indicator on' : 'status-indicator';
                     }
                     if (data.m2) {
-                        document.getElementById('m2_pos').textContent = data.m2.slot || '--';
-                        document.getElementById('m2_led').className = data.m2.status === 'running' ? 'status-indicator on' : 'status-indicator';
+                        const r2 = data.m2.status === 'running';
+                        document.getElementById('m2_pos').textContent     = data.m2.slot || '--';
+                        document.getElementById('m2_status').textContent  = r2 ? 'Đang chạy' : 'Đang dừng';
+                        document.getElementById('m2_status').style.color  = r2 ? 'var(--success)' : 'var(--danger)';
+                        document.getElementById('m2_led').className        = r2 ? 'status-indicator on' : 'status-indicator';
                     }
                     if (data.m3) {
-                        document.getElementById('m3_level').textContent = data.m3.level !== '--' ? 'Tang ' + data.m3.level : '--';
-                        document.getElementById('m3_led').className = data.m3.status === 'running' ? 'status-indicator on' : 'status-indicator';
+                        const r3 = data.m3.status === 'running';
+                        document.getElementById('m3_slot').textContent    = data.m3.slot || '--';
+                        document.getElementById('m3_status').textContent  = r3 ? 'Đang lấy hàng' : 'Không lấy';
+                        document.getElementById('m3_status').style.color  = r3 ? 'var(--success)' : 'var(--text-sub)';
+                        document.getElementById('m3_led').className        = r3 ? 'status-indicator on' : 'status-indicator';
                     }
                     if (data.m4) {
-                        document.getElementById('m4_angle').textContent = data.m4.angle + '°';
-                        document.getElementById('m4_temp').textContent  = data.m4.temp  + '°C';
-                        document.getElementById('m4_led').className = data.m4.status === 'running' ? 'status-indicator on' : 'status-indicator';
+                        const r4 = data.m4.status === 'running';
+                        const conv = data.m4.conveyor === 'on';
+                        const fan  = data.m4.fan      === 'on';
+                        document.getElementById('m4_conveyor').textContent = conv ? 'Hoạt động' : 'Dừng';
+                        document.getElementById('m4_conveyor').style.color = conv ? 'var(--success)' : 'var(--danger)';
+                        document.getElementById('m4_fan').textContent      = fan  ? 'Hoạt động' : 'Dừng';
+                        document.getElementById('m4_fan').style.color      = fan  ? 'var(--success)' : 'var(--danger)';
+                        document.getElementById('m4_led').className         = r4 ? 'status-indicator on' : 'status-indicator';
                     }
                 }
             } catch(e) { console.log("Loi parse du lieu:", e); }
