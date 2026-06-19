@@ -54,37 +54,90 @@ function computeStats(data) {
 
 function initMaintMode() {
     if (typeof window === 'undefined' || window.location.pathname.includes('login.html')) return;
-    
+
     function loadScript(src, cb) {
         if(document.querySelector(`script[src="${src}"]`)) return cb();
         const s = document.createElement('script');
         s.src = src; s.onload = cb; document.head.appendChild(s);
     }
-    
+
     loadScript("https://cdn.jsdelivr.net/npm/sweetalert2@11", () => {
         loadScript("https://cdn.jsdelivr.net/npm/mqtt@5.3.4/dist/mqtt.min.js", () => {
             const maintClient = mqtt.connect(MQTT_CFG.url, { ...MQTT_CFG.options, clientId: getClientId('maint') });
-            maintClient.on('connect', () => maintClient.subscribe('asrs/cmd/change_mode'));
+
+            maintClient.on('connect', () => {
+                maintClient.subscribe('asrs/cmd/change_mode');
+                maintClient.subscribe('warehouse/maintenance_mode');
+            });
+
+            let maintStartTime = null;
+
+            function showMaintDialog() {
+                if (!maintStartTime) maintStartTime = new Date();
+                const startStr = maintStartTime.toISOString().replace('T', ' ').split('.')[0];
+                Swal.fire({
+                    background: '#1e2130',
+                    color: '#e0e0e0',
+                    showConfirmButton: false,
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    width: '420px',
+                    padding: '40px 36px',
+                    customClass: { popup: 'asrs-maint-popup' },
+                    html: `
+                        <style>
+                            .asrs-maint-popup { border: 2px solid #f59e0b !important; border-radius: 18px !important; }
+                        </style>
+                        <div style="font-size:64px; margin-bottom:16px;">🔒</div>
+                        <div style="font-family:'Orbitron',sans-serif; font-size:22px; font-weight:800;
+                                    color:#f59e0b; letter-spacing:1px; margin-bottom:16px; text-transform:uppercase;">
+                            System Under Maintenance
+                        </div>
+                        <div style="font-size:14px; color:#9ca3af; line-height:1.7; margin-bottom:24px;">
+                            The ASRS system is currently in <strong style="color:#f59e0b;">MANUAL</strong> mode.<br>
+                            Please wait until maintenance is complete to continue.
+                        </div>
+                        <div style="display:inline-flex; align-items:center; gap:8px;
+                                    background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.5);
+                                    border-radius:999px; padding:8px 20px; font-size:12px;
+                                    font-weight:700; letter-spacing:1px; color:#f59e0b;">
+                            <span style="width:8px;height:8px;background:#f59e0b;border-radius:50%;
+                                         animation:swal-pulse 1s infinite;display:inline-block;"></span>
+                            MAINTENANCE MODE ACTIVE
+                        </div>
+                        <div style="margin-top:18px; font-size:11px; color:#6b7280;">
+                            Started: ${startStr}
+                        </div>
+                        <style>
+                            @keyframes swal-pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+                        </style>
+                    `
+                });
+            }
+
+            function hideMaintDialog() {
+                maintStartTime = null;
+                Swal.close();
+            }
+
             maintClient.on('message', (t, m) => {
-                if (t === 'asrs/cmd/change_mode') {
-                    try {
-                        const data = JSON.parse(m.toString());
-                        if (data.mode === 'MANUAL') {
-                            Swal.fire({
-                                title: 'System under maintenance',
-                                text: 'The ASRS system is currently in MANUAL mode for maintenance.',
-                                icon: 'warning',
-                                showConfirmButton: false,
-                                allowOutsideClick: false,
-                                allowEscapeKey: false
-                            });
-                        } else if (data.mode === 'AUTO') {
-                            Swal.close();
-                        }
-                    } catch(e) {}
-                }
+                try {
+                    const data = JSON.parse(m.toString());
+                    // Handle topic 'asrs/cmd/change_mode' from asrs_maintenance
+                    if (t === 'asrs/cmd/change_mode') {
+                        if (data.mode === 'MANUAL') showMaintDialog();
+                        else if (data.mode === 'AUTO') hideMaintDialog();
+                    }
+                    // Handle topic 'warehouse/maintenance_mode' from Python backend
+                    if (t === 'warehouse/maintenance_mode') {
+                        const active = data.active === true || data.active === 'true' || data.active === 1;
+                        if (active) showMaintDialog();
+                        else hideMaintDialog();
+                    }
+                } catch(e) {}
             });
         });
     });
 }
 initMaintMode();
+
