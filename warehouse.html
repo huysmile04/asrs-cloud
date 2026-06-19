@@ -91,6 +91,84 @@
         .occupied  .status-text { color: #e74c3c; font-size: 12px; font-family: monospace; }
         .active    .status-text { color: #f39c12; font-weight: bold; font-size: 12px; }
 
+        /* === MAINTENANCE LOCK MODAL === */
+        #maintenanceLockModal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(6px);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            animation: fadeInModal 0.3s ease;
+        }
+        #maintenanceLockModal.active { display: flex; }
+        @keyframes fadeInModal {
+            from { opacity: 0; transform: scale(0.95); }
+            to   { opacity: 1; transform: scale(1); }
+        }
+        .lock-modal-box {
+            background: #1a252f;
+            border: 3px solid #f39c12;
+            border-radius: 20px;
+            padding: 50px 60px;
+            text-align: center;
+            max-width: 520px;
+            box-shadow: 0 0 60px rgba(243,156,18,0.4), 0 20px 60px rgba(0,0,0,0.5);
+            animation: lockPulse 2.5s ease-in-out infinite;
+        }
+        @keyframes lockPulse {
+            0%, 100% { box-shadow: 0 0 40px rgba(243,156,18,0.3), 0 20px 60px rgba(0,0,0,0.5); }
+            50%       { box-shadow: 0 0 80px rgba(243,156,18,0.6), 0 20px 60px rgba(0,0,0,0.5); }
+        }
+        .lock-icon { font-size: 72px; margin-bottom: 20px; animation: lockSpin 4s linear infinite; }
+        @keyframes lockSpin {
+            0%, 80%, 100% { transform: rotate(0deg); }
+            10%            { transform: rotate(-15deg); }
+            20%            { transform: rotate(15deg); }
+            30%            { transform: rotate(0deg); }
+        }
+        .lock-title { font-size: 26px; font-weight: 800; color: #f39c12; margin-bottom: 16px; letter-spacing: 1px; }
+        .lock-message { font-size: 16px; color: #ccc; line-height: 1.8; margin-bottom: 24px; }
+        .lock-badge {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: rgba(243,156,18,0.15); border: 1px solid #f39c12;
+            border-radius: 30px; padding: 8px 20px;
+            color: #f39c12; font-size: 13px; font-weight: 700;
+        }
+        .lock-badge-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: #f39c12;
+            animation: blink 1s ease-in-out infinite;
+        }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+        .lock-time { color: #888; font-size: 12px; margin-top: 16px; }
+
+        /* === MAINTENANCE BANNER (top of page) === */
+        #maintenanceBanner {
+            display: none;
+            width: 100%;
+            max-width: 1100px;
+            background: linear-gradient(90deg, #f39c12, #e67e22);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            font-weight: 700;
+            font-size: 14px;
+            align-items: center;
+            gap: 10px;
+        }
+        #maintenanceBanner.active { display: flex; }
+
+        /* === LOCKED OVERLAY on dashboard container === */
+        .dashboard-container.maintenance-locked {
+            pointer-events: none;
+            filter: grayscale(0.5) opacity(0.7);
+            position: relative;
+        }
+
         /* === RESPONSIVE === */
         @media (max-width: 850px) {
             .main-content { flex-direction: column; gap: 20px; }
@@ -115,6 +193,13 @@
 </head>
 <body>
 
+    <!-- MAINTENANCE LOCK BANNER -->
+    <div id="maintenanceBanner">
+        <span>🔒</span>
+        <span>HỆ THỐNG ĐANG BẢO TRÌ — Tất cả lệnh bị khóa. Vui lòng chờ đội bảo trì hoàn thành.</span>
+        <span id="bannerTime" style="margin-left:auto; opacity:0.8; font-weight:400;"></span>
+    </div>
+
     <header>
         <div class="logo"><a href="index.html"><img src="ute_logo.png" alt="HCMUTE Logo"></a></div>
         <div class="user-info">Xin chào, Double2H</div>
@@ -124,7 +209,7 @@
         </div>
     </header>
 
-    <div class="dashboard-container">
+    <div class="dashboard-container" id="dashboardContainer">
         <div class="status-bar">
             <div class="status-item">PLC S7-1200: <span id="plcBadge" class="bg-red">DISCONNECTED</span></div>
             <div class="status-item">STATUS: <span id="statusBadge" class="bg-green">IDLE</span></div>
@@ -137,7 +222,6 @@
             <!-- CONTROL PANEL -->
             <div class="control-panel">
                 <h3>🤖 Điều Khiển Tự Động</h3>
-
 
                 <!-- HỘP TRẠNG THÁI HỆ THỐNG -->
                 <div class="sys-status-box" id="sysStatusBox">
@@ -165,6 +249,23 @@
         </div>
     </div>
 
+    <!-- MAINTENANCE LOCK MODAL -->
+    <div id="maintenanceLockModal">
+        <div class="lock-modal-box">
+            <div class="lock-icon">🔒</div>
+            <div class="lock-title">HỆ THỐNG ĐANG BẢO TRÌ</div>
+            <div class="lock-message">
+                Hệ thống đang ở chế độ bảo trì.<br>
+                Vui lòng chờ cho đến khi chế độ bảo trì<br>được tắt để tiếp tục sử dụng.
+            </div>
+            <div class="lock-badge">
+                <div class="lock-badge-dot"></div>
+                MAINTENANCE MODE ACTIVE
+            </div>
+            <div class="lock-time" id="lockStartTime"></div>
+        </div>
+    </div>
+
     <script src="config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/mqtt@5.3.4/dist/mqtt.min.js" crossorigin="anonymous"></script>
@@ -172,18 +273,48 @@
         authGuard();
 
         // ── STATE ──────────────────────────────────────────────────────────────
-        let isPlcConnected = true;
-        let isSystemBusy   = false;
-        let activeSlot     = null;   // slot đang được Pi vận hành
-        let selectedSlotId = null;   // slot user đang chọn để EXPORT
-        let currentAction  = null;   // 'IMPORT' | 'EXPORT' | null
-        let mqttClient     = null;
-        let timeInterval   = null;
+        let isPlcConnected     = true;
+        let isSystemBusy       = false;
+        let isMaintenanceMode  = false;
+        let activeSlot         = null;
+        let selectedSlotId     = null;
+        let currentAction      = null;
+        let mqttClient         = null;
+        let timeInterval       = null;
 
         const defaultData = Object.fromEntries(
             Array.from({length: 9}, (_, i) => [i + 1, { uid: null, status: 'available' }])
         );
         let slotData = JSON.parse(localStorage.getItem('warehouseDataV2')) || defaultData;
+
+        // ── MAINTENANCE MODE ────────────────────────────────────────────────────
+        function setMaintenanceMode(active, timestamp) {
+            isMaintenanceMode = active;
+
+            const modal   = document.getElementById('maintenanceLockModal');
+            const banner  = document.getElementById('maintenanceBanner');
+            const dash    = document.getElementById('dashboardContainer');
+            const lockTs  = document.getElementById('lockStartTime');
+
+            if (active) {
+                modal.classList.add('active');
+                banner.classList.add('active');
+                dash.classList.add('maintenance-locked');
+                if (timestamp) lockTs.textContent = 'Bắt đầu: ' + timestamp;
+                // Force-disable all action buttons
+                document.getElementById('importBtn').disabled = true;
+                document.getElementById('exportBtn').disabled = true;
+                // Close any open Swal dialog
+                if (Swal.isVisible()) Swal.close();
+            } else {
+                modal.classList.remove('active');
+                banner.classList.remove('active');
+                dash.classList.remove('maintenance-locked');
+                lockTs.textContent = '';
+                // Restore button states normally
+                updateButtons();
+            }
+        }
 
         // ── GRID ───────────────────────────────────────────────────────────────
         function initGrid() {
@@ -195,9 +326,9 @@
             }
             for (let i = 1; i <= 9; i++) {
                 const d = slotData[i];
-                const isAvail = d.status === 'available';
+                const isAvail  = d.status === 'available';
                 const isActive = (activeSlot === i);
-                let cardClass = isActive ? 'active' : d.status;
+                let cardClass  = isActive ? 'active' : d.status;
                 let statusText = isActive ? '⚙️ Đang xử lý...' : (isAvail ? 'Trống' : escapeHtml(d.item || d.uid || ''));
                 container.innerHTML += `
                     <div class="slot-card ${cardClass}" id="slotCard-${i}" onclick="selectSlot(${i})">
@@ -209,11 +340,11 @@
                 const el = document.getElementById(`slotCard-${selectedSlotId}`);
                 if (el && !el.classList.contains('active')) el.classList.add('selected');
             }
-            document.getElementById('gridPanel').classList.toggle('busy', isSystemBusy);
+            document.getElementById('gridPanel').classList.toggle('busy', isSystemBusy || isMaintenanceMode);
         }
 
         function selectSlot(id) {
-            if (isSystemBusy) return;
+            if (isSystemBusy || isMaintenanceMode) return;
             document.querySelectorAll('.slot-card').forEach(el => el.classList.remove('selected'));
             const card = document.getElementById(`slotCard-${id}`);
             if (card) card.classList.add('selected');
@@ -228,9 +359,9 @@
             for (let i = 1; i <= 9; i++) {
                 const info = piDb[`slot_${i}`] || { status: 'Available' };
                 slotData[i] = {
-                    uid:      info.status === 'Occupied' ? info.uid       : null,
-                    item:     info.status === 'Occupied' ? (info.item_name || info.uid) : null,
-                    status:   info.status === 'Occupied' ? 'occupied' : 'available'
+                    uid:    info.status === 'Occupied' ? info.uid       : null,
+                    item:   info.status === 'Occupied' ? (info.item_name || info.uid) : null,
+                    status: info.status === 'Occupied' ? 'occupied' : 'available'
                 };
             }
             localStorage.setItem('warehouseDataV2', JSON.stringify(slotData));
@@ -242,6 +373,8 @@
             IDLE:          { icon: '🟢', text: 'Hệ thống sẵn sàng',          cls: 'idle'  },
             WAITING_RFID:  { icon: '📡', text: 'Đang chờ quét thẻ RFID...',  cls: 'busy'  },
             MOVING:        { icon: '🔄', text: 'Đang di chuyển...',           cls: 'busy'  },
+            HOMING:        { icon: '🏠', text: 'Đang về vị trí gốc...',       cls: 'busy'  },
+            ESTOP:         { icon: '🛑', text: 'KHẨN CẤP DỪNG',              cls: 'error' },
             ERROR:         { icon: '🔴', text: 'Lỗi hệ thống',               cls: 'error' },
             DISCONNECTED:  { icon: '🔌', text: 'Chưa kết nối PLC',           cls: ''      },
         };
@@ -265,6 +398,11 @@
         }
 
         function updateButtons() {
+            if (isMaintenanceMode) {
+                document.getElementById('importBtn').disabled = true;
+                document.getElementById('exportBtn').disabled = true;
+                return;
+            }
             const off = !isPlcConnected || isSystemBusy;
             document.getElementById('importBtn').disabled = off;
             document.getElementById('exportBtn').disabled = off;
@@ -274,19 +412,18 @@
         function handleRobotState(data) {
             const state = (data.state || 'IDLE').toUpperCase();
             const slot  = data.slot && data.slot !== 'N/A' ? parseInt(data.slot) : null;
-            const msg   = data.message || '';
 
             activeSlot     = (state !== 'IDLE') ? slot : null;
-            isSystemBusy   = (state !== 'IDLE');
+            isSystemBusy   = (state !== 'IDLE' && state !== 'ESTOP');
+
             if (state === 'IDLE') {
                 currentAction = null;
-                // If _imp still set but Pi returned to IDLE → operation done before reload, no ACK received
                 const pendingKey = sessionStorage.getItem('_imp') ? '_imp' : sessionStorage.getItem('_exp') ? '_exp' : null;
                 if (pendingKey) {
                     sessionStorage.removeItem(pendingKey);
                     if (Swal.isVisible()) {
                         Swal.hideLoading();
-                        Swal.update({ title: 'Operation complete!', html: 'Check the grid to confirm.', footer: '', showConfirmButton: true, confirmButtonText: 'OK' });
+                        Swal.update({ title: 'Hoàn thành!', html: 'Kiểm tra bản đồ để xác nhận.', footer: '', showConfirmButton: true, confirmButtonText: 'OK' });
                     }
                 }
             }
@@ -299,16 +436,16 @@
         }
 
         function cancelAction() {
-            const label = currentAction === 'IMPORT' ? 'import' : currentAction === 'EXPORT' ? 'export' : 'operation';
+            const label = currentAction === 'IMPORT' ? 'import' : currentAction === 'EXPORT' ? 'export' : 'thao tác';
             Swal.fire({
-                title: 'Confirm cancel?',
-                text: `Are you sure you want to cancel ${label}? The robot will stop immediately.`,
+                title: 'Xác nhận hủy?',
+                text: `Bạn có chắc muốn hủy ${label}? Robot sẽ dừng ngay lập tức.`,
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#c0392b',
                 cancelButtonColor: '#555',
-                confirmButtonText: 'Cancel operation',
-                cancelButtonText: 'Continue'
+                confirmButtonText: 'Hủy thao tác',
+                cancelButtonText: 'Tiếp tục'
             }).then(result => {
                 if (!result.isConfirmed) return;
                 if (mqttClient && mqttClient.connected) {
@@ -323,15 +460,15 @@
                 updateStatusBar();
                 updateButtons();
                 initGrid();
-                Swal.fire({ title: 'Cancelled!', text: 'Reset command sent to Pi.', icon: 'info', timer: 2500, showConfirmButton: false });
+                Swal.fire({ title: 'Đã hủy!', text: 'Lệnh reset đã được gửi.', icon: 'info', timer: 2500, showConfirmButton: false });
             });
         }
 
         function handleAck(data) {
             const action = typeof data === 'object' ? (data.action || '') : '';
             const slot   = typeof data === 'object' && data.slot ? `Slot ${data.slot}` : '';
-            const uid    = typeof data === 'object' && data.uid  ? `UID: ${data.uid}`  : '';
-            const msg    = [slot, uid].filter(Boolean).join(' — ') || 'Operation successful!';
+            const item   = typeof data === 'object' && data.item ? data.item : '';
+            const msg    = [slot, item].filter(Boolean).join(' — ') || 'Thao tác thành công!';
 
             isSystemBusy  = false;
             activeSlot    = null;
@@ -340,11 +477,10 @@
             updateStatusBar();
             updateButtons();
 
-            // Sync grid if Pi sends slot info
             if (typeof data === 'object' && data.slot) {
                 const sid = parseInt(data.slot);
-                if (action === 'IMPORT' && data.uid) {
-                    slotData[sid] = { uid: data.uid, item: data.item || data.uid || '', status: 'occupied' };
+                if (action === 'IMPORT') {
+                    slotData[sid] = { uid: data.uid || '', item: item || '', status: 'occupied' };
                 } else if (action === 'EXPORT') {
                     slotData[sid] = { uid: null, status: 'available' };
                 }
@@ -356,7 +492,7 @@
 
             if (action === 'IMPORT' || action === 'EXPORT') {
                 const key   = action === 'IMPORT' ? '_imp' : '_exp';
-                const title = action === 'IMPORT' ? 'Import complete!' : 'Export complete!';
+                const title = action === 'IMPORT' ? 'Nhập hàng thành công!' : 'Xuất hàng thành công!';
                 sessionStorage.removeItem(key);
                 if (Swal.isVisible()) {
                     Swal.hideLoading();
@@ -365,16 +501,13 @@
                 } else {
                     Swal.fire({ title, text: msg, icon: 'success', timer: 3000, showConfirmButton: false });
                 }
-            } else {
-                Swal.fire({ title: action ? `${action} successful!` : 'Done!',
-                            text: msg, icon: 'success', timer: 3000, showConfirmButton: false });
             }
         }
 
         function showImportDialog() {
             Swal.fire({
                 title: 'Đang nhập hàng...',
-                html:  'Chờ quét thẻ RFID và robot vận chuyển.<br><small style="color:#aaa">Hộp thoại tự đóng sau khi PLC xác nhận xong.</small>',
+                html:  'Robot đang vận chuyển.<br><small style="color:#aaa">Hộp thoại tự đóng sau khi PLC xác nhận xong.</small>',
                 footer: '<button class="swal-cancel-btn" onclick="cancelAction()">⛔ Hủy nhập hàng</button>',
                 allowOutsideClick: false,
                 allowEscapeKey:    false,
@@ -397,17 +530,20 @@
 
         // ── PROCESS ACTION (AUTO MODE) ─────────────────────────────────────────
         function processAction(actionType) {
-            if (!isPlcConnected) { Swal.fire('Warning', 'Please connect to PLC first!', 'warning'); return; }
-            if (isSystemBusy)    { Swal.fire('Notice', 'System is busy, please wait!', 'info'); return; }
+            if (isMaintenanceMode) {
+                Swal.fire('Đang bảo trì', 'Hệ thống đang ở chế độ bảo trì. Không thể thực hiện lệnh!', 'warning');
+                return;
+            }
+            if (!isPlcConnected) { Swal.fire('Cảnh báo', 'Vui lòng kết nối PLC trước!', 'warning'); return; }
+            if (isSystemBusy)    { Swal.fire('Thông báo', 'Hệ thống đang bận, vui lòng chờ!', 'info'); return; }
 
             const uid = document.getElementById('uidInput').value.trim();
 
             if (actionType === 'EXPORT' && !uid && !selectedSlotId) {
-                Swal.fire('Notice', 'Please select a slot on the map or enter the UID!', 'warning');
+                Swal.fire('Thông báo', 'Vui lòng chọn ô kho hoặc nhập UID!', 'warning');
                 return;
             }
 
-            // Send command to Pi — Pi decides slot for IMPORT
             const cmd = { action: actionType, uid: uid, item: uid };
             if (actionType === 'EXPORT' && selectedSlotId) {
                 cmd.slot_id = selectedSlotId;
@@ -439,7 +575,7 @@
             const badge = document.getElementById('plcBadge');
             badge.className = isPlcConnected ? 'bg-green' : 'bg-red';
             badge.innerText = isPlcConnected ? 'CONNECTED' : 'DISCONNECTED';
-            if (isPlcConnected) setStatusDisplay('IDLE');
+            if (isPlcConnected && !isMaintenanceMode) setStatusDisplay('IDLE');
             updateButtons();
         }
 
@@ -448,8 +584,15 @@
             mqttClient = mqtt.connect(MQTT_CFG.url, { ...MQTT_CFG.options, clientId: getClientId('warehouse') });
 
             mqttClient.on('connect', () => {
-                mqttClient.subscribe(['warehouse/robot_state', 'warehouse/ack', 'warehouse/error', 'warehouse/slot_data']);
-                // Request Pi to send current slot status
+                mqttClient.subscribe([
+                    'warehouse/robot_state',
+                    'warehouse/ack',
+                    'warehouse/error',
+                    'warehouse/slot_data',
+                    'warehouse/maintenance_mode',
+                    'warehouse/plc_data'
+                ]);
+                // Request current slot status
                 setTimeout(() => mqttClient.publish('warehouse/command', JSON.stringify({ action: 'GET_STATUS' })), 600);
             });
 
@@ -457,10 +600,31 @@
                 let data;
                 try { data = JSON.parse(m.toString()); } catch(e) { data = m.toString(); }
 
-                if (t === 'warehouse/robot_state') handleRobotState(data);
-                if (t === 'warehouse/ack')         handleAck(data);
-                if (t === 'warehouse/slot_data')   syncGridFromPi(data);
+                if (t === 'warehouse/robot_state')       handleRobotState(data);
+                if (t === 'warehouse/ack')               handleAck(data);
+                if (t === 'warehouse/slot_data')         syncGridFromPi(data);
+                if (t === 'warehouse/maintenance_mode')  {
+                    // Authoritative state from warehouse.py
+                    const active = data.active === true || data.active === 'true';
+                    setMaintenanceMode(active, data.timestamp || '');
+                    if (!active && isSystemBusy) {
+                        // If maintenance was released while we thought system was busy, clear it
+                        isSystemBusy = false;
+                        setStatusDisplay('IDLE');
+                        updateStatusBar();
+                    }
+                }
+                if (t === 'warehouse/plc_data') {
+                    // Use PLC connection status from warehouse.py data
+                    isPlcConnected = true;  // If we receive data, PLC is connected
+                    updatePlcUI();
+                    // Update banner time
+                    if (data.timestamp) {
+                        document.getElementById('bannerTime').textContent = 'Cập nhật: ' + data.timestamp;
+                    }
+                }
                 if (t === 'warehouse/error') {
+                    if (isMaintenanceMode) return;  // Maintenance site handles errors in maintenance mode
                     const msg = typeof data === 'string' ? data : (data.message || JSON.stringify(data));
                     sessionStorage.removeItem('_imp');
                     sessionStorage.removeItem('_exp');
@@ -471,7 +635,7 @@
                     updateStatusBar();
                     updateButtons();
                     initGrid();
-                    Swal.fire('Device error', msg, 'error');
+                    Swal.fire('Lỗi thiết bị', msg, 'error');
                 }
             });
         }

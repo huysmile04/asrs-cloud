@@ -55,7 +55,7 @@
         .dashboard-grid {
             flex: 1;
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 28px;
         }
 
@@ -85,7 +85,7 @@
         @media (max-width: 1100px) {
             header { padding: 16px 30px; }
             main { padding: 30px 30px 40px; }
-            .dashboard-grid { grid-template-columns: repeat(2, 1fr); gap: 20px; }
+            .dashboard-grid { grid-template-columns: repeat(3, 1fr); gap: 20px; }
         }
         @media (max-width: 768px) {
             header { padding: 14px 20px; }
@@ -136,12 +136,6 @@
                 <div class="card-title-text">Operation Logs</div>
                 <p>Xem nhật ký hoạt động real-time của hệ thống được cập nhật trực tiếp qua MQTT.</p>
                 <a href="logs.html" class="card-link" style="background:#e94560;">Mở Operation Logs →</a>
-            </div>
-            <div class="dashboard-card">
-                <div class="card-icon">🔧</div>
-                <div class="card-title-text">System Tools</div>
-                <p>Giám sát CPU, RAM, nhiệt độ Raspberry Pi và trạng thái vận hành các động cơ.</p>
-                <a href="tools.html" class="card-link" style="background:var(--success);">Mở System Tools →</a>
             </div>
             <div class="dashboard-card">
                 <div class="card-icon">📊</div>
