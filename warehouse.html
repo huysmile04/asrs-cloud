@@ -181,6 +181,7 @@
         // Trạng thái luồng IMPORT/EXPORT
         let _dialogPhase   = null; // null | 'waiting_rfid' | 'moving' | 'done'
         let _cancelRequested = false;
+        let isMaintenanceMode = false;
 
         const defaultData = Object.fromEntries(
             Array.from({length: 9}, (_, i) => [i + 1, { uid: null, status: 'available' }])
@@ -246,6 +247,7 @@
             MOVING:       { icon: '🚗', text: 'Moving...',            cls: 'busy'  },
             ERROR:        { icon: '🔴', text: 'System Error',         cls: 'error' },
             DISCONNECTED: { icon: '🔌', text: 'PLC Disconnected',     cls: ''      },
+            MAINTENANCE:  { icon: '🛠️', text: 'System Maintenance', cls: 'error' },
         };
 
         function setStatusDisplay(state, sub) {
@@ -267,7 +269,7 @@
         }
 
         function updateButtons() {
-            const off = !isPlcConnected || isSystemBusy;
+            const off = !isPlcConnected || isSystemBusy || isMaintenanceMode;
             document.getElementById('importBtn').disabled = off;
             document.getElementById('exportBtn').disabled = off;
         }
@@ -417,7 +419,11 @@
             }
 
             const sub = slot ? `Slot ${slot}` : '';
-            setStatusDisplay(state, sub);
+            if (state === 'IDLE' && isMaintenanceMode) {
+                setStatusDisplay('MAINTENANCE', 'Manual control active');
+            } else {
+                setStatusDisplay(state, sub);
+            }
             updateStatusBar();
             updateButtons();
             initGrid();
@@ -575,7 +581,8 @@
                     'warehouse/ack',
                     'warehouse/error',
                     'warehouse/slot_data',
-                    'warehouse/rfid_result'   // ← lắng nghe kết quả RFID
+                    'warehouse/rfid_result',
+                    'warehouse/maintenance_mode'
                 ]);
                 setTimeout(() => mqttClient.publish('warehouse/command', JSON.stringify({ action: 'GET_STATUS' })), 600);
             });
@@ -602,6 +609,15 @@
                 if (t === 'warehouse/ack')         handleAck(data);
                 if (t === 'warehouse/slot_data')   syncGridFromPi(data);
                 if (t === 'warehouse/rfid_result') handleRfidResult(data);
+                if (t === 'warehouse/maintenance_mode') {
+                    isMaintenanceMode = !!data.active;
+                    if (isMaintenanceMode) {
+                        setStatusDisplay('MAINTENANCE', 'Manual control active');
+                    } else if (!isSystemBusy) {
+                        setStatusDisplay('IDLE');
+                    }
+                    updateButtons();
+                }
                 if (t === 'warehouse/error') {
                     const msg = typeof data === 'string' ? data : (data.message || JSON.stringify(data));
                     sessionStorage.removeItem('_imp');
