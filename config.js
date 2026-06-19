@@ -71,8 +71,11 @@ function initMaintMode() {
             });
 
             let maintStartTime = null;
+            let _maintActive = false;
 
             function showMaintDialog() {
+                if (_maintActive) return;
+                _maintActive = true;
                 if (!maintStartTime) maintStartTime = new Date();
                 const startStr = maintStartTime.toISOString().replace('T', ' ').split('.')[0];
                 Swal.fire({
@@ -116,6 +119,8 @@ function initMaintMode() {
             }
 
             function hideMaintDialog() {
+                if (!_maintActive) return;
+                _maintActive = false;
                 maintStartTime = null;
                 Swal.close();
             }
