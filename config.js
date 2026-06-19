@@ -51,3 +51,40 @@ function computeStats(data) {
     });
     return { imports, exports, hourImp, hourExp, slotImp, slotExp };
 }
+
+function initMaintMode() {
+    if (typeof window === 'undefined' || window.location.pathname.includes('login.html')) return;
+    
+    function loadScript(src, cb) {
+        if(document.querySelector(`script[src="${src}"]`)) return cb();
+        const s = document.createElement('script');
+        s.src = src; s.onload = cb; document.head.appendChild(s);
+    }
+    
+    loadScript("https://cdn.jsdelivr.net/npm/sweetalert2@11", () => {
+        loadScript("https://cdn.jsdelivr.net/npm/mqtt@5.3.4/dist/mqtt.min.js", () => {
+            const maintClient = mqtt.connect(MQTT_CFG.url, { ...MQTT_CFG.options, clientId: getClientId('maint') });
+            maintClient.on('connect', () => maintClient.subscribe('asrs/cmd/change_mode'));
+            maintClient.on('message', (t, m) => {
+                if (t === 'asrs/cmd/change_mode') {
+                    try {
+                        const data = JSON.parse(m.toString());
+                        if (data.mode === 'MANUAL') {
+                            Swal.fire({
+                                title: 'System under maintenance',
+                                text: 'The ASRS system is currently in MANUAL mode for maintenance.',
+                                icon: 'warning',
+                                showConfirmButton: false,
+                                allowOutsideClick: false,
+                                allowEscapeKey: false
+                            });
+                        } else if (data.mode === 'AUTO') {
+                            Swal.close();
+                        }
+                    } catch(e) {}
+                }
+            });
+        });
+    });
+}
+initMaintMode();

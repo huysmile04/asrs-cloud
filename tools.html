@@ -167,16 +167,16 @@
 <body>
 
     <header>
-        <div class="header-title">📊 TRUNG TÂM GIÁM SÁT HỆ THỐNG AS/RS</div>
-        <a href="dashboard.html" class="btn-back">← QUAY LẠI DASHBOARD</a>
+        <div class="header-title">📊 AS/RS SYSTEM MONITORING CENTER</div>
+        <a href="dashboard.html" class="btn-back">← BACK TO DASHBOARD</a>
     </header>
 
     <div class="container">
         
-        <!-- CỘT 1: GIÁM SÁT RASPBERRY PI -->
+        <!-- COLUMN 1: RASPBERRY PI MONITORING -->
         <div class="column">
             <div class="card">
-                <h3 class="card-title">🖥️ Thông số Raspberry Pi</h3>
+                <h3 class="card-title">🖥️ Raspberry Pi Metrics</h3>
                 <div class="gauge-row">
                     <!-- CPU -->
                     <div class="gauge-box">
@@ -185,7 +185,7 @@
                             <circle id="cpuCir" class="circle-fill" cx="60" cy="60" r="50" stroke="var(--primary)"/>
                             <text x="60" y="60" class="gauge-val" id="cpuVal">0%</text>
                         </svg>
-                        <div class="gauge-name">TẢI CPU</div>
+                        <div class="gauge-name">CPU LOAD</div>
                     </div>
                     <!-- RAM -->
                     <div class="gauge-box">
@@ -194,7 +194,7 @@
                             <circle id="ramCir" class="circle-fill" cx="60" cy="60" r="50" stroke="var(--warning)"/>
                             <text x="60" y="60" class="gauge-val" id="ramVal">0%</text>
                         </svg>
-                        <div class="gauge-name">SỬ DỤNG RAM</div>
+                        <div class="gauge-name">RAM USAGE</div>
                     </div>
                     <!-- TEMP -->
                     <div class="gauge-box">
@@ -203,7 +203,7 @@
                             <circle id="tmpCir" class="circle-fill" cx="60" cy="60" r="50" stroke="var(--danger)"/>
                             <text x="60" y="60" class="gauge-val" id="tmpVal">0°C</text>
                         </svg>
-                        <div class="gauge-name">NHIỆT ĐỘ PI</div>
+                        <div class="gauge-name">PI TEMP</div>
                     </div>
                 </div>
 
@@ -214,67 +214,67 @@
             </div>
 
             <div class="card" style="margin-top: 35px;">
-                <h3 class="card-title">📡 Thông tin MQTT Broker</h3>
+                <h3 class="card-title">📡 MQTT Broker Info</h3>
                 <div class="m-data">
                     <div class="m-row"><span class="m-label">Server Host:</span><span class="m-val" style="font-size: 14px;">hivemq.cloud</span></div>
-                    <div class="m-row"><span class="m-label">Trạng thái:</span><span class="m-val" id="brokerStatus" style="color:var(--text-sub)">Đang kết nối...</span></div>
-                    <div class="m-row"><span class="m-label">Thời gian thực:</span><span class="m-val" id="realTimeClock">--:--:--</span></div>
+                    <div class="m-row"><span class="m-label">Status:</span><span class="m-val" id="brokerStatus" style="color:var(--text-sub)">Connecting...</span></div>
+                    <div class="m-row"><span class="m-label">Real-time:</span><span class="m-val" id="realTimeClock">--:--:--</span></div>
                 </div>
             </div>
         </div>
 
-        <!-- CỘT 2: GIÁM SÁT ĐỘNG CƠ -->
+        <!-- COLUMN 2: MOTOR MONITORING -->
         <div class="column">
             <div class="card">
-                <h3 class="card-title">⚙️ Trạng thái vận hành động cơ</h3>
+                <h3 class="card-title">⚙️ Motor Operation Status</h3>
                 <div class="motor-grid">
-                    <!-- Trục Z -->
+                    <!-- Z Axis -->
                     <div class="motor-card">
                         <div class="motor-header">
-                            <span>Trục Z</span>
+                            <span>Z Axis</span>
                             <div class="status-indicator" id="m1_led"></div>
                         </div>
                         <div class="m-data">
-                            <div class="m-row"><span class="m-label">Tốc độ:</span><span class="m-val" id="m1_speed">0 rpm</span></div>
-                            <div class="m-row"><span class="m-label">Trạng thái:</span><span class="m-val" id="m1_status" style="color:var(--text-sub)">Đang dừng</span></div>
+                            <div class="m-row"><span class="m-label">Speed:</span><span class="m-val" id="m1_speed">0 rpm</span></div>
+                            <div class="m-row"><span class="m-label">Status:</span><span class="m-val" id="m1_status" style="color:var(--text-sub)">Stopped</span></div>
                         </div>
                     </div>
-                    <!-- Trục X -->
+                    <!-- X Axis -->
                     <div class="motor-card">
                         <div class="motor-header">
-                            <span>Trục X</span>
+                            <span>X Axis</span>
                             <div class="status-indicator" id="m2_led"></div>
                         </div>
                         <div class="m-data">
-                            <div class="m-row"><span class="m-label">Vị trí:</span><span class="m-val" id="m2_pos">--</span></div>
-                            <div class="m-row"><span class="m-label">Trạng thái:</span><span class="m-val" id="m2_status" style="color:var(--text-sub)">Đang dừng</span></div>
+                            <div class="m-row"><span class="m-label">Position:</span><span class="m-val" id="m2_pos">--</span></div>
+                            <div class="m-row"><span class="m-label">Status:</span><span class="m-val" id="m2_status" style="color:var(--text-sub)">Stopped</span></div>
                         </div>
                     </div>
-                    <!-- Cơ cấu lấy hàng -->
+                    <!-- Retrieval Mechanism -->
                     <div class="motor-card">
                         <div class="motor-header">
-                            <span>Cơ cấu lấy hàng</span>
+                            <span>Retrieval Mechanism</span>
                             <div class="status-indicator" id="m3_led"></div>
                         </div>
                         <div class="m-data">
-                            <div class="m-row"><span class="m-label">Ô hiện tại:</span><span class="m-val" id="m3_slot">--</span></div>
-                            <div class="m-row"><span class="m-label">Trạng thái:</span><span class="m-val" id="m3_status" style="color:var(--text-sub)">Không lấy</span></div>
+                            <div class="m-row"><span class="m-label">Current Slot:</span><span class="m-val" id="m3_slot">--</span></div>
+                            <div class="m-row"><span class="m-label">Status:</span><span class="m-val" id="m3_status" style="color:var(--text-sub)">Not active</span></div>
                         </div>
                     </div>
-                    <!-- Động cơ phụ -->
+                    <!-- Aux Motors -->
                     <div class="motor-card">
                         <div class="motor-header">
-                            <span>Động cơ</span>
+                            <span>Aux Motors</span>
                             <div class="status-indicator" id="m4_led"></div>
                         </div>
                         <div class="m-data">
-                            <div class="m-row"><span class="m-label">Băng tải:</span><span class="m-val" id="m4_conveyor" style="color:var(--text-sub)">Dừng</span></div>
-                            <div class="m-row"><span class="m-label">Quạt:</span><span class="m-val" id="m4_fan" style="color:var(--text-sub)">Dừng</span></div>
+                            <div class="m-row"><span class="m-label">Conveyor:</span><span class="m-val" id="m4_conveyor" style="color:var(--text-sub)">Stopped</span></div>
+                            <div class="m-row"><span class="m-label">Fan:</span><span class="m-val" id="m4_fan" style="color:var(--text-sub)">Stopped</span></div>
                         </div>
                     </div>
                 </div>
                 <div class="info-footer">
-                    <span>* Dữ liệu được làm mới mỗi 2 giây</span>
+                    <span>* Data is refreshed every 2 seconds</span>
                     <span>Version 4.0 Pro Monitoring</span>
                 </div>
             </div>
@@ -340,21 +340,21 @@
                     if (data.m1) {
                         const r1 = data.m1.status === 'running';
                         document.getElementById('m1_speed').textContent   = data.m1.speed + ' rpm';
-                        document.getElementById('m1_status').textContent  = r1 ? 'Đang chạy' : 'Đang dừng';
+                        document.getElementById('m1_status').textContent  = r1 ? 'Running' : 'Stopped';
                         document.getElementById('m1_status').style.color  = r1 ? 'var(--success)' : 'var(--danger)';
                         document.getElementById('m1_led').className        = r1 ? 'status-indicator on' : 'status-indicator';
                     }
                     if (data.m2) {
                         const r2 = data.m2.status === 'running';
                         document.getElementById('m2_pos').textContent     = data.m2.slot || '--';
-                        document.getElementById('m2_status').textContent  = r2 ? 'Đang chạy' : 'Đang dừng';
+                        document.getElementById('m2_status').textContent  = r2 ? 'Running' : 'Stopped';
                         document.getElementById('m2_status').style.color  = r2 ? 'var(--success)' : 'var(--danger)';
                         document.getElementById('m2_led').className        = r2 ? 'status-indicator on' : 'status-indicator';
                     }
                     if (data.m3) {
                         const r3 = data.m3.status === 'running';
                         document.getElementById('m3_slot').textContent    = data.m3.slot || '--';
-                        document.getElementById('m3_status').textContent  = r3 ? 'Đang lấy hàng' : 'Không lấy';
+                        document.getElementById('m3_status').textContent  = r3 ? 'Retrieving' : 'Not active';
                         document.getElementById('m3_status').style.color  = r3 ? 'var(--success)' : 'var(--text-sub)';
                         document.getElementById('m3_led').className        = r3 ? 'status-indicator on' : 'status-indicator';
                     }
@@ -362,14 +362,14 @@
                         const r4 = data.m4.status === 'running';
                         const conv = data.m4.conveyor === 'on';
                         const fan  = data.m4.fan      === 'on';
-                        document.getElementById('m4_conveyor').textContent = conv ? 'Hoạt động' : 'Dừng';
+                        document.getElementById('m4_conveyor').textContent = conv ? 'Active' : 'Stopped';
                         document.getElementById('m4_conveyor').style.color = conv ? 'var(--success)' : 'var(--danger)';
-                        document.getElementById('m4_fan').textContent      = fan  ? 'Hoạt động' : 'Dừng';
+                        document.getElementById('m4_fan').textContent      = fan  ? 'Active' : 'Stopped';
                         document.getElementById('m4_fan').style.color      = fan  ? 'var(--success)' : 'var(--danger)';
                         document.getElementById('m4_led').className         = r4 ? 'status-indicator on' : 'status-indicator';
                     }
                 }
-            } catch(e) { console.log("Loi parse du lieu:", e); }
+            } catch(e) { console.log("Data parse error:", e); }
         });
 
         setInterval(() => {

@@ -108,44 +108,44 @@
                 </div>
                 <h1 class="page-title">Operation Logs</h1>
                 <p style="margin-top: 10px; color: #64748b; max-width: 640px;">
-                    Ghi lại toàn bộ hoạt động nhập/xuất của hệ thống kho tự động. Dữ liệu được cập nhật trực tiếp từ thiết bị qua MQTT.
+                    Records all import/export operations of the automated warehouse system. Data is updated directly from the device via MQTT.
                 </p>
             </div>
             <div class="header-actions">
                 <button class="btn-secondary" onclick="window.location.href='dashboard.html'">Back to Dashboard</button>
                 <button class="btn-secondary" onclick="window.location.href='warehouse.html'">Warehouse Map</button>
-                <button class="btn-primary" onclick="exportData()">Xuất Excel</button>
+                <button class="btn-primary" onclick="exportData()">Export Excel</button>
             </div>
         </div>
 
         <div class="summary-grid">
             <div class="metric-card">
-                <div class="metric-label">Tổng số thao tác</div>
+                <div class="metric-label">Total operations</div>
                 <div class="metric-value" id="metricTotal">0</div>
-                <div class="metric-note">Số dòng log hiện có trong bảng</div>
+                <div class="metric-note">Current number of log rows in table</div>
             </div>
             <div class="metric-card">
                 <div class="metric-label">Import</div>
                 <div class="metric-value" id="metricImport">0</div>
-                <div class="metric-note">Số lần nhập hàng đã ghi nhận</div>
+                <div class="metric-note">Recorded number of imports</div>
             </div>
             <div class="metric-card">
                 <div class="metric-label">Export</div>
                 <div class="metric-value" id="metricExport">0</div>
-                <div class="metric-note">Số lần xuất hàng đã ghi nhận</div>
+                <div class="metric-note">Recorded number of exports</div>
             </div>
             <div class="metric-card">
-                <div class="metric-label">Cập nhật cuối</div>
+                <div class="metric-label">Last update</div>
                 <div class="metric-value" id="metricLastUpdate">--:--:--</div>
-                <div class="metric-note">Thời gian nhận log mới nhất</div>
+                <div class="metric-note">Latest log receipt time</div>
             </div>
         </div>
 
         <div class="content-grid">
             <aside class="panel-card">
                 <div class="panel-header">
-                    <h3>Trạng thái kết nối</h3>
-                    <span id="statusPill" class="status-pill disconnected">Đã ngắt kết nối</span>
+                    <h3>Connection status</h3>
+                    <span id="statusPill" class="status-pill disconnected">Disconnected</span>
                 </div>
                 <div class="panel-body">
                     <div class="info-list">
@@ -154,8 +154,8 @@
                             <span>HiveMQ Cloud</span>
                         </div>
                         <div class="info-item" style="display:block; padding: 0; background: none;">
-                            <strong style="display:block; margin-bottom: 8px; font-size:13px; color:#475569;">Kết nối PLC S7-1200</strong>
-                            <button id="plcBtn" class="plc-btn disconnected">🔴 PLC Chưa Kết Nối</button>
+                            <strong style="display:block; margin-bottom: 8px; font-size:13px; color:#475569;">PLC S7-1200 Connection</strong>
+                            <button id="plcBtn" class="plc-btn disconnected">🔴 PLC Disconnected</button>
                         </div>
                     </div>
                 </div>
@@ -164,22 +164,22 @@
             <section class="table-panel">
                 <div class="table-card">
                     <div class="table-header">
-                        <h3>Bảng nhật ký hoạt động</h3>
-                        <button class="btn-primary" onclick="exportData()">Xuất CSV / Excel</button>
+                        <h3>Activity log table</h3>
+                        <button class="btn-primary" onclick="exportData()">Export CSV / Excel</button>
                     </div>
-                    <div class="table-caption">Các hoạt động mới nhất sẽ tự động xuất hiện tại đây. Nhấn F12 chọn Console để xem Log.</div>
+                    <div class="table-caption">The latest operations will automatically appear here. Press F12 and select Console to view Logs.</div>
                     <div class="table-wrapper">
                         <table id="hTable">
                             <thead>
                                 <tr>
-                                    <th>Thời gian</th>
-                                    <th>Vị trí</th>
-                                    <th>Hành động</th>
-                                    <th>Tên sản phẩm</th>
+                                    <th>Time</th>
+                                    <th>Location</th>
+                                    <th>Action</th>
+                                    <th>Product name</th>
                                 </tr>
                             </thead>
                             <tbody id="logsBody">
-                                <tr><td colspan="4" style="text-align:center; padding: 30px; color:#999;">Đang chờ dữ liệu từ thiết bị...</td></tr>
+                                <tr><td colspan="4" style="text-align:center; padding: 30px; color:#999;">Waiting for data from device...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -197,18 +197,18 @@
 
         function connect() {
             if (typeof mqtt === 'undefined') {
-                Swal.fire('Lỗi', 'Không tải được thư viện MQTT', 'error');
+                Swal.fire('Error', 'Failed to load MQTT library', 'error');
                 return;
             }
 
             document.getElementById('statusPill').className = 'status-pill connecting';
-            document.getElementById('statusPill').innerText = 'Đang kết nối...';
+            document.getElementById('statusPill').innerText = 'Connecting...';
 
             client = mqtt.connect(MQTT_CFG.url, { ...MQTT_CFG.options, clientId: getClientId('logs') });
             
             client.on('connect', () => {
                 document.getElementById('statusPill').className = 'status-pill connected';
-                document.getElementById('statusPill').innerText = 'Đã kết nối';
+                document.getElementById('statusPill').innerText = 'Connected';
 
                 client.subscribe(['warehouse/history', 'warehouse/history_init', 'warehouse/error', 'warehouse/status'], function(err) {
                     if (!err) {
@@ -249,7 +249,7 @@
                     }
 
                     if (dataArray.length === 0) {
-                        document.getElementById("logsBody").innerHTML = `<tr><td colspan="4" style="text-align:center; padding: 30px; color:#999;">Không có lịch sử nào được lưu trên thiết bị.</td></tr>`;
+                        document.getElementById("logsBody").innerHTML = `<tr><td colspan="4" style="text-align:center; padding: 30px; color:#999;">No history saved on the device.</td></tr>`;
                         return;
                     }
 
@@ -269,20 +269,20 @@
                     const btn = document.getElementById('plcBtn');
                     if (d.plc === 'connected') {
                         btn.className = 'plc-btn connected';
-                        btn.textContent = '🟢 PLC Đang Kết Nối';
+                        btn.textContent = '🟢 PLC Connected';
                     } else {
                         btn.className = 'plc-btn disconnected';
-                        btn.textContent = '🔴 PLC Chưa Kết Nối';
+                        btn.textContent = '🔴 PLC Disconnected';
                     }
                 }
                 if (t === 'warehouse/error') {
-                    Swal.fire('Lỗi từ thiết bị', String(d), 'error');
+                    Swal.fire('Device error', String(d), 'error');
                 }
             });
 
             client.on('close', () => {
                 document.getElementById('statusPill').className = 'status-pill disconnected';
-                document.getElementById('statusPill').innerText = 'Đã ngắt kết nối';
+                document.getElementById('statusPill').innerText = 'Disconnected';
             });
         }
 

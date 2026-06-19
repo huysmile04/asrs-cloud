@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Báo cáo Vận hành - AS/RS HCMUTE</title>
+    <title>Operation Report - AS/RS HCMUTE</title>
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="config.js"></script>
@@ -176,11 +176,11 @@
 </head>
 <body>
 
-<div class="mqtt-chip" id="mqttChip">● Đang kết nối MQTT...</div>
+<div class="mqtt-chip" id="mqttChip">● Connecting to MQTT...</div>
 
 <header>
-    <div class="header-title">📋 BÁO CÁO VẬN HÀNH HỆ THỐNG</div>
-    <a href="dashboard.html" class="btn-back">← QUAY LẠI DASHBOARD</a>
+    <div class="header-title">📋 SYSTEM OPERATION REPORT</div>
+    <a href="dashboard.html" class="btn-back">← BACK TO DASHBOARD</a>
 </header>
 
 <div class="container">
@@ -188,25 +188,25 @@
     <!-- BỘ LỌC + XUẤT FILE -->
     <div class="filter-bar">
         <div class="filter-group">
-            Từ ngày
+            From date
             <input type="date" id="startDate">
         </div>
         <div class="filter-group">
-            Đến ngày
+            To date
             <input type="date" id="endDate">
         </div>
         <div class="filter-group">
-            Loại thao tác
+            Action type
             <select id="actionFilter">
-                <option value="all">Tất cả sự kiện</option>
-                <option value="import">Chỉ Nhập hàng</option>
-                <option value="export">Chỉ Xuất hàng</option>
+                <option value="all">All events</option>
+                <option value="import">Import only</option>
+                <option value="export">Export only</option>
             </select>
         </div>
-        <button class="btn-action btn-filter" onclick="applyFilter()">🔍 Lọc dữ liệu</button>
+        <button class="btn-action btn-filter" onclick="applyFilter()">🔍 Filter data</button>
         <div class="btn-group">
-            <button class="btn-action btn-excel" onclick="exportToExcel()">📊 Xuất Excel</button>
-            <button class="btn-action btn-word"  onclick="exportToWord()">📄 Xuất Word</button>
+            <button class="btn-action btn-excel" onclick="exportToExcel()">📊 Export Excel</button>
+            <button class="btn-action btn-word"  onclick="exportToWord()">📄 Export Word</button>
         </div>
     </div>
 
@@ -214,39 +214,39 @@
     <div class="stats-grid">
         <div class="stat-card">
             <div class="stat-icon">📦</div>
-            <span class="stat-label">Tổng lưu lượng</span>
+            <span class="stat-label">Total Traffic</span>
             <div class="stat-value" id="statTotal">0</div>
-            <div class="stat-sub" id="statTotalTrend">Đang kết nối...</div>
+            <div class="stat-sub" id="statTotalTrend">Connecting...</div>
         </div>
         <div class="stat-card">
             <div class="stat-icon">🏭</div>
-            <span class="stat-label">Lấp đầy kho</span>
+            <span class="stat-label">Warehouse Occupancy</span>
             <div class="stat-value c-primary" id="statOccupancy">0%</div>
-            <div class="stat-sub" id="statOccupancyTrend">-- Slots đang dùng</div>
+            <div class="stat-sub" id="statOccupancyTrend">-- Slots in use</div>
         </div>
         <div class="stat-card">
             <div class="stat-icon">📥</div>
-            <span class="stat-label">Tổng Import</span>
+            <span class="stat-label">Total Import</span>
             <div class="stat-value c-success" id="statImport">0</div>
-            <div class="stat-sub">Số lần nhập hàng</div>
+            <div class="stat-sub">Number of imports</div>
         </div>
         <div class="stat-card">
             <div class="stat-icon">📤</div>
-            <span class="stat-label">Tổng Export</span>
+            <span class="stat-label">Total Export</span>
             <div class="stat-value c-danger" id="statExport">0</div>
-            <div class="stat-sub">Số lần xuất hàng</div>
+            <div class="stat-sub">Number of exports</div>
         </div>
     </div>
 
     <!-- BIỂU ĐỒ: THEO GIỜ + THEO SLOT -->
-    <div class="section-title">📈 Thống kê số lượng hàng</div>
+    <div class="section-title">📈 Quantity Statistics</div>
     <div class="charts-2col">
         <div class="chart-card">
-            <div class="chart-title">Số lượng hàng theo giờ trong ngày</div>
+            <div class="chart-title">Hourly item quantity</div>
             <canvas id="barHourChart" height="130"></canvas>
         </div>
         <div class="chart-card">
-            <div class="chart-title">Số lượng hàng theo Slot kho</div>
+            <div class="chart-title">Item quantity by Slot</div>
             <canvas id="barSlotChart" height="130"></canvas>
         </div>
     </div>
@@ -254,35 +254,35 @@
     <!-- BIỂU ĐỒ: TREND + TỈ LỆ -->
     <div class="charts-main">
         <div class="chart-card">
-            <div class="chart-title">Xu hướng Xuất / Nhập theo thời gian thực</div>
+            <div class="chart-title">Real-time Import / Export trend</div>
             <canvas id="lineChart" height="100"></canvas>
         </div>
         <div class="chart-card">
-            <div class="chart-title">Tỉ lệ Import / Export</div>
+            <div class="chart-title">Import / Export ratio</div>
             <canvas id="pieChart" height="100"></canvas>
         </div>
     </div>
 
     <!-- BẢNG LỊCH SỬ HOẠT ĐỘNG -->
-    <div class="section-title">📋 Nhật ký lịch sử</div>
+    <div class="section-title">📋 Activity Log</div>
     <div class="table-card">
         <div class="table-header">
-            <h3>Lịch sử hoạt động Import / Export</h3>
-            <span class="table-badge tb-normal" id="logCount">0 bản ghi</span>
+            <h3>Import / Export History</h3>
+            <span class="table-badge tb-normal" id="logCount">0 records</span>
         </div>
         <div class="table-wrap">
             <table id="reportTable">
                 <thead>
                     <tr>
-                        <th>Thời gian</th>
-                        <th>Thao tác</th>
-                        <th>Vị trí (Slot)</th>
-                        <th>Tên sản phẩm</th>
-                        <th>Trạng thái</th>
+                        <th>Time</th>
+                        <th>Action</th>
+                        <th>Location (Slot)</th>
+                        <th>Product name</th>
+                        <th>Status</th>
                     </tr>
                 </thead>
                 <tbody id="reportBody">
-                    <tr><td class="empty-td" colspan="5">Đang chờ dữ liệu từ thiết bị...</td></tr>
+                    <tr><td class="empty-td" colspan="5">Waiting for data from device...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -291,21 +291,21 @@
     <!-- BẢNG LỊCH SỬ LỖI -->
     <div class="table-card">
         <div class="table-header">
-            <h3><span class="live-dot"></span>Nhật ký lịch sử lỗi hệ thống</h3>
-            <span class="table-badge tb-danger" id="errorCount">0 lỗi</span>
+            <h3><span class="live-dot"></span>System Error Log</h3>
+            <span class="table-badge tb-danger" id="errorCount">0 errors</span>
         </div>
         <div class="table-wrap">
             <table id="errorTable">
                 <thead>
                     <tr>
-                        <th>Thời gian phát hiện</th>
-                        <th>Mô tả lỗi</th>
-                        <th>Mức độ</th>
-                        <th>Trạng thái xử lý</th>
+                        <th>Detection Time</th>
+                        <th>Error description</th>
+                        <th>Severity</th>
+                        <th>Handling status</th>
                     </tr>
                 </thead>
                 <tbody id="errorBody">
-                    <tr><td class="empty-td" colspan="4">✅ Chưa ghi nhận lỗi nào — Hệ thống hoạt động bình thường</td></tr>
+                    <tr><td class="empty-td" colspan="4">✅ No errors recorded — System operating normally</td></tr>
                 </tbody>
             </table>
         </div>
@@ -371,7 +371,7 @@
     window.addEventListener('beforeunload', () => { if (reportClient && reportClient.connected) reportClient.end(true); });
 
     reportClient.on('connect', () => {
-        document.getElementById('mqttChip').textContent = '● MQTT Đã kết nối';
+        document.getElementById('mqttChip').textContent = '● MQTT Connected';
         document.getElementById('mqttChip').classList.add('connected');
         reportClient.subscribe(['warehouse/history', 'warehouse/history_init', 'warehouse/error'], err => {
             if (!err) setTimeout(() => reportClient.publish('warehouse/command', JSON.stringify({ action: 'GET_HISTORY' })), 500);
@@ -379,7 +379,7 @@
     });
 
     reportClient.on('close', () => {
-        document.getElementById('mqttChip').textContent = '● MQTT Ngắt kết nối';
+        document.getElementById('mqttChip').textContent = '● MQTT Disconnected';
         document.getElementById('mqttChip').classList.remove('connected');
     });
 
@@ -444,9 +444,9 @@
         const pct        = totalSlots > 0 ? Math.round((occupied / totalSlots) * 100) : 0;
 
         document.getElementById('statTotal').textContent          = total;
-        document.getElementById('statTotalTrend').textContent     = imports + ' Nhập,  ' + exports + ' Xuất';
+        document.getElementById('statTotalTrend').textContent     = imports + ' Import,  ' + exports + ' Export';
         document.getElementById('statOccupancy').textContent      = pct + '%';
-        document.getElementById('statOccupancyTrend').textContent = occupied + '/' + totalSlots + ' Slots đang dùng';
+        document.getElementById('statOccupancyTrend').textContent = occupied + '/' + totalSlots + ' Slots in use';
         document.getElementById('statImport').textContent         = imports;
         document.getElementById('statExport').textContent         = exports;
 
@@ -470,9 +470,9 @@
 
     function renderTable(data) {
         const tbody = document.getElementById('reportBody');
-        document.getElementById('logCount').textContent = data.length + ' bản ghi';
+        document.getElementById('logCount').textContent = data.length + ' records';
         if (!data.length) {
-            tbody.innerHTML = '<tr><td class="empty-td" colspan="5">Đang chờ dữ liệu từ thiết bị...</td></tr>';
+            tbody.innerHTML = '<tr><td class="empty-td" colspan="5">Waiting for data from device...</td></tr>';
             return;
         }
         tbody.innerHTML = [...data].reverse().map(item => {
@@ -485,23 +485,23 @@
                 <td><span class="badge ${badgeCls}">${act}</span></td>
                 <td><strong>${slotLabel}</strong></td>
                 <td>${escapeHtml(String(item.item || item.item_name || '---'))}</td>
-                <td style="color:var(--success);font-weight:700;">✅ Thành công</td>
+                <td style="color:var(--success);font-weight:700;">✅ Success</td>
             </tr>`;
         }).join('');
     }
 
     function renderErrorLog() {
         const tbody = document.getElementById('errorBody');
-        document.getElementById('errorCount').textContent = allErrorData.length + ' lỗi';
+        document.getElementById('errorCount').textContent = allErrorData.length + ' errors';
         if (!allErrorData.length) {
-            tbody.innerHTML = '<tr><td class="empty-td" colspan="4">✅ Chưa ghi nhận lỗi nào — Hệ thống hoạt động bình thường</td></tr>';
+            tbody.innerHTML = '<tr><td class="empty-td" colspan="4">✅ No errors recorded — System operating normally</td></tr>';
             return;
         }
         tbody.innerHTML = [...allErrorData].reverse().map(err => `<tr>
             <td style="font-family:monospace;color:var(--text-sub);">${escapeHtml(err.time)}</td>
             <td>${escapeHtml(err.msg)}</td>
-            <td><span class="badge badge-error">LỖI</span></td>
-            <td style="color:var(--danger);font-weight:700;">⚠️ Cần kiểm tra</td>
+            <td><span class="badge badge-error">ERROR</span></td>
+            <td style="color:var(--danger);font-weight:700;">⚠️ Check required</td>
         </tr>`).join('');
     }
 
@@ -526,34 +526,34 @@
             filtered = filtered.filter(d => (d.act || d.action || '').toUpperCase() === actionFilter.toUpperCase());
         }
         renderTable(filtered);
-        Swal.fire({ title: 'Đã lọc', text: 'Hiển thị ' + filtered.length + ' kết quả', icon: 'success', timer: 1500, showConfirmButton: false });
+        Swal.fire({ title: 'Filtered', text: 'Showing ' + filtered.length + ' results', icon: 'success', timer: 1500, showConfirmButton: false });
     }
 
     function exportToExcel() {
         const wb = XLSX.utils.book_new();
         const { hourImp, hourExp, slotImp, slotExp } = computeStats(allReportData);
 
-        const s1 = [['Thời gian','Thao tác','Slot','Tên sản phẩm','Trạng thái']];
+        const s1 = [['Time','Action','Slot','Product name','Status']];
         allReportData.forEach(item => s1.push([
             item.time || item.timestamp || '--',
             (item.act || item.action || '').toUpperCase(),
             'Slot ' + (item.slot || item.slot_id || 'N/A'),
             item.item || item.item_name || '---',
-            'Thành công'
+            'Success'
         ]));
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(s1), 'Lịch sử hoạt động');
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(s1), 'Operation History');
 
-        const s2 = [['Giờ','Số lần Nhập','Số lần Xuất','Tổng']];
+        const s2 = [['Hour','Import Count','Export Count','Total']];
         HOURS.forEach((h, i) => s2.push([h, hourImp[i], hourExp[i], hourImp[i] + hourExp[i]]));
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(s2), 'Thống kê theo giờ');
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(s2), 'Hourly Stats');
 
-        const s3 = [['Slot','Số lần Nhập','Số lần Xuất','Tổng']];
+        const s3 = [['Slot','Import Count','Export Count','Total']];
         SLOTS.forEach((s, i) => s3.push([s, slotImp[i], slotExp[i], slotImp[i] + slotExp[i]]));
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(s3), 'Thống kê theo Slot');
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(s3), 'Slot Stats');
 
-        const s4 = [['Thời gian','Mô tả lỗi','Mức độ','Trạng thái']];
-        allErrorData.forEach(err => s4.push([err.time, err.msg, 'LỖI', 'Cần kiểm tra']));
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(s4), 'Lịch sử lỗi');
+        const s4 = [['Time','Error Description','Severity','Status']];
+        allErrorData.forEach(err => s4.push([err.time, err.msg, 'ERROR', 'Check required']));
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(s4), 'Error Log');
 
         XLSX.writeFile(wb, 'Bao-cao-kho-ASRS_' + new Date().toLocaleDateString('vi-VN').replace(/\//g,'-') + '.xlsx');
     }
@@ -569,18 +569,18 @@
                 <td>${escapeHtml((item.act || item.action || '').toUpperCase())}</td>
                 <td>Slot ${escapeHtml(String(item.slot || 'N/A'))}</td>
                 <td>${escapeHtml(String(item.item || '---'))}</td>
-                <td>Thành công</td>
+                <td>Success</td>
               </tr>`).join('')
-            : '<tr><td colspan="5" style="text-align:center;">Không có dữ liệu</td></tr>';
+            : '<tr><td colspan="5" style="text-align:center;">No data available</td></tr>';
 
         const errRows = allErrorData.length
             ? [...allErrorData].reverse().map(e => `<tr>
                 <td>${escapeHtml(e.time)}</td>
                 <td>${escapeHtml(e.msg)}</td>
-                <td style="color:red;font-weight:bold;">LỖI</td>
-                <td>Cần kiểm tra</td>
+                <td style="color:red;font-weight:bold;">ERROR</td>
+                <td>Check required</td>
               </tr>`).join('')
-            : '<tr><td colspan="4" style="text-align:center;">Không có lỗi nào</td></tr>';
+            : '<tr><td colspan="4" style="text-align:center;">No errors</td></tr>';
 
         const html = `
         <html xmlns:o="urn:schemas-microsoft-com:office:office"
@@ -601,26 +601,26 @@
             .sum-row { text-align: center; margin-bottom: 24px; }
         <\/style>
         <\/head><body>
-        <h1>BÁO CÁO VẬN HÀNH HỆ THỐNG AS/RS</h1>
-        <p class="subtitle">Trường Đại học Công nghệ Kỹ thuật TP.HCM — HCMUTE<br>Ngày xuất báo cáo: ${now}</p>
+        <h1>AS/RS SYSTEM OPERATION REPORT</h1>
+        <p class="subtitle">HCMC University of Technology and Education — HCMUTE<br>Report Date: ${now}</p>
 
-        <h2>1. Tổng quan</h2>
+        <h2>1. Overview</h2>
         <div class="sum-row">
-            <div class="sum-box"><b>${total}</b>Tổng thao tác</div>
-            <div class="sum-box"><b>${imports}</b>Tổng Import</div>
-            <div class="sum-box"><b>${exports}</b>Tổng Export</div>
-            <div class="sum-box"><b>${allErrorData.length}</b>Số lỗi</div>
+            <div class="sum-box"><b>${total}</b>Total Actions</div>
+            <div class="sum-box"><b>${imports}</b>Total Import</div>
+            <div class="sum-box"><b>${exports}</b>Total Export</div>
+            <div class="sum-box"><b>${allErrorData.length}</b>Total Errors</div>
         </div>
 
-        <h2>2. Nhật ký lịch sử hoạt động</h2>
+        <h2>2. Activity History Log</h2>
         <table>
-            <tr><th>Thời gian</th><th>Thao tác</th><th>Slot</th><th>Sản phẩm</th><th>Kết quả</th></tr>
+            <tr><th>Time</th><th>Action</th><th>Slot</th><th>Product</th><th>Result</th></tr>
             ${histRows}
         </table>
 
-        <h2>3. Nhật ký lịch sử lỗi hệ thống</h2>
+        <h2>3. System Error Log</h2>
         <table>
-            <tr><th>Thời gian</th><th>Mô tả lỗi</th><th>Mức độ</th><th>Trạng thái</th></tr>
+            <tr><th>Time</th><th>Error Description</th><th>Severity</th><th>Status</th></tr>
             ${errRows}
         </table>
         <\/body><\/html>`;

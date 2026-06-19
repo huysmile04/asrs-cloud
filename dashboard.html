@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Hệ Thống Lưu Kho Tự Động</title>
+    <title>Dashboard - Automated Storage System</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -117,31 +117,31 @@
         <div class="logo">
             <a href="index.html"><img src="ute_logo.png" alt="HCMUTE Logo"></a>
         </div>
-        <div class="user-info" id="usernameDisplay">HỆ THỐNG LƯU KHO TỰ ĐỘNG (AS/RS) TÍCH HỢP CÔNG NGHỆ IOT VÀ NHẬN DIỆN RFID</div>
-        <button class="logout-btn" onclick="logout()">Đăng xuất</button>
+        <div class="user-info" id="usernameDisplay">AUTOMATED STORAGE AND RETRIEVAL SYSTEM (AS/RS) INTEGRATING IOT AND RFID TECHNOLOGY</div>
+        <button class="logout-btn" onclick="logout()">Logout</button>
     </header>
 
     <main>
         <h1 class="dashboard-title">Dashboard</h1>
-        <p class="dashboard-subtitle">Hệ thống lưu kho tự động AS/RS — HCMUTE</p>
+        <p class="dashboard-subtitle">Automated Storage and Retrieval System (AS/RS) — HCMUTE</p>
         <div class="dashboard-grid">
             <div class="dashboard-card">
                 <div class="card-icon">🗺️</div>
                 <div class="card-title-text">Warehouse Map</div>
-                <p>Xem sơ đồ kho, quản lý slot và thực hiện thao tác Import / Export hàng hóa.</p>
-                <a href="warehouse.html" class="card-link" style="background:var(--primary);">Mở Warehouse Map →</a>
+                <p>View warehouse map, manage slots, and perform Import / Export operations.</p>
+                <a href="warehouse.html" class="card-link" style="background:var(--primary);">Open Warehouse Map →</a>
             </div>
             <div class="dashboard-card">
                 <div class="card-icon">📋</div>
                 <div class="card-title-text">Operation Logs</div>
-                <p>Xem nhật ký hoạt động real-time của hệ thống được cập nhật trực tiếp qua MQTT.</p>
-                <a href="logs.html" class="card-link" style="background:#e94560;">Mở Operation Logs →</a>
+                <p>View real-time operation logs updated directly via MQTT.</p>
+                <a href="logs.html" class="card-link" style="background:#e94560;">Open Operation Logs →</a>
             </div>
             <div class="dashboard-card">
                 <div class="card-icon">📊</div>
                 <div class="card-title-text">Reports</div>
-                <p>Báo cáo thống kê, biểu đồ xu hướng xuất nhập và xuất dữ liệu file Excel.</p>
-                <a href="report.html" class="card-link" style="background:var(--warning);">Mở Báo cáo →</a>
+                <p>Statistical reports, import/export trend charts, and export data to Excel.</p>
+                <a href="report.html" class="card-link" style="background:var(--warning);">Open Reports →</a>
             </div>
         </div>
     </main>

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Warehouse Map - HCMUTE</title>
+    <title>Warehouse Map - Automated Storage System</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
         body { background-color: #f4f7f6; color: #333; padding: 20px; display: flex; flex-direction: column; align-items: center; }
@@ -117,10 +117,10 @@
 
     <header>
         <div class="logo"><a href="index.html"><img src="ute_logo.png" alt="HCMUTE Logo"></a></div>
-        <div class="user-info">Xin chào, <span id="userName">Operator</span></div>
+        <div class="user-info">Hello, <span id="userName">Operator</span></div>
         <div>
-            <button class="btn-header back-btn" onclick="location.href='dashboard.html'">← Quay lại</button>
-            <button class="btn-header logout-btn" onclick="doLogout()">Đăng xuất</button>
+            <button class="btn-header back-btn" onclick="location.href='dashboard.html'">← Back</button>
+            <button class="btn-header logout-btn" onclick="doLogout()">Logout</button>
         </div>
     </header>
 
@@ -136,18 +136,18 @@
 
             <!-- CONTROL PANEL -->
             <div class="control-panel">
-                <h3>🤖 Điều Khiển Tự Động</h3>
+                <h3>🤖 Automatic Control</h3>
 
                 <!-- HỘP TRẠNG THÁI HỆ THỐNG -->
                 <div class="sys-status-box" id="sysStatusBox">
                     <div class="sys-status-icon" id="sysStatusIcon">🔌</div>
-                    <div class="sys-status-text" id="sysStatusText">Chưa kết nối PLC</div>
+                    <div class="sys-status-text" id="sysStatusText">PLC Disconnected</div>
                     <div class="sys-status-sub"  id="sysStatusSub"></div>
                 </div>
 
                 <div class="input-group">
-                    <label>Thông tin sản phẩm (nếu có):</label>
-                    <input type="text" id="uidInput" placeholder="Nhập thông tin sản phẩm hoặc để trống...">
+                    <label>Product information (optional):</label>
+                    <input type="text" id="uidInput" placeholder="Enter product info or leave blank...">
                 </div>
 
                 <div class="action-buttons">
@@ -173,8 +173,8 @@
         // ── STATE ──────────────────────────────────────────────────────────────
         let isPlcConnected = true;
         let isSystemBusy   = false;
-        let activeSlot     = null;   // slot đang được Pi vận hành
-        let selectedSlotId = null;   // slot user đang chọn để EXPORT
+        let activeSlot     = null;   // slot currently operated by Pi
+        let selectedSlotId = null;   // slot selected by user for EXPORT
         let currentAction  = null;   // 'IMPORT' | 'EXPORT' | null
         let mqttClient     = null;
         let timeInterval   = null;
@@ -197,7 +197,7 @@
                 const isAvail = d.status === 'available';
                 const isActive = (activeSlot === i);
                 let cardClass = isActive ? 'active' : d.status;
-                let statusText = isActive ? '⚙️ Đang xử lý...' : (isAvail ? 'Trống' : escapeHtml(d.item || d.uid || ''));
+                let statusText = isActive ? '⚙️ Processing...' : (isAvail ? 'Empty' : escapeHtml(d.item || d.uid || ''));
                 container.innerHTML += `
                     <div class="slot-card ${cardClass}" id="slotCard-${i}" onclick="selectSlot(${i})">
                         <div class="slot-number">Slot ${i}</div>
@@ -221,7 +221,7 @@
             document.getElementById('uidInput').value = (d && d.uid) ? d.uid : '';
         }
 
-        // ── SYNC GRID TỪ PI ────────────────────────────────────────────────────
+        // ── SYNC GRID FROM PI ──────────────────────────────────────────────────
         function syncGridFromPi(piDb) {
             if (!piDb || typeof piDb !== 'object') return;
             for (let i = 1; i <= 9; i++) {
@@ -238,11 +238,11 @@
 
         // ── STATUS DISPLAY ─────────────────────────────────────────────────────
         const STATE_CFG = {
-            IDLE:          { icon: '✅', text: 'Hệ thống sẵn sàng',          cls: 'idle'  },
-            WAITING_RFID:  { icon: '📡', text: 'Đang chờ quét thẻ RFID...',  cls: 'busy'  },
-            MOVING:        { icon: '🚗', text: 'Đang di chuyển...',           cls: 'busy'  },
-            ERROR:         { icon: '🔴', text: 'Lỗi hệ thống',               cls: 'error' },
-            DISCONNECTED:  { icon: '🔌', text: 'Chưa kết nối PLC',           cls: ''      },
+            IDLE:          { icon: '✅', text: 'System Ready',          cls: 'idle'  },
+            WAITING_RFID:  { icon: '📡', text: 'Waiting for RFID...',  cls: 'busy'  },
+            MOVING:        { icon: '🚗', text: 'Moving...',             cls: 'busy'  },
+            ERROR:         { icon: '🔴', text: 'System Error',         cls: 'error' },
+            DISCONNECTED:  { icon: '🔌', text: 'PLC Disconnected',     cls: ''      },
         };
 
         function setStatusDisplay(state, sub) {
@@ -256,7 +256,7 @@
 
         function updateStatusBar() {
             const badge = document.getElementById('statusBadge');
-            badge.textContent  = isSystemBusy ? 'ĐANG CHẠY' : 'SẴN SÀNG';
+            badge.textContent  = isSystemBusy ? 'RUNNING' : 'READY';
             badge.className    = isSystemBusy ? 'bg-orange' : 'bg-green';
             const tBadge = document.getElementById('targetSlotBadge');
             tBadge.textContent = activeSlot ? `Slot ${activeSlot}` : 'N/A';
@@ -269,7 +269,7 @@
             document.getElementById('exportBtn').disabled = off;
         }
 
-        // ── XỬ LÝ MQTT MESSAGES TỪ PI ─────────────────────────────────────────
+        // ── MQTT MESSAGES FROM PI ─────────────────────────────────────────────
         function handleRobotState(data) {
             const state = (data.state || 'IDLE').toUpperCase();
             const slot  = data.slot && data.slot !== 'N/A' ? parseInt(data.slot) : null;
@@ -370,9 +370,9 @@
 
         function showImportDialog() {
             Swal.fire({
-                title: 'Đang nhập hàng...',
-                html:  'Chờ quét thẻ RFID và robot vận chuyển.<br><small style="color:#aaa">Hộp thoại tự đóng sau khi PLC xác nhận xong.</small>',
-                footer: '<button class="swal-cancel-btn" onclick="cancelAction()">✖ Hủy nhập hàng</button>',
+                title: 'Importing...',
+                html:  'Waiting for RFID scan and robot transport.<br><small style="color:#aaa">Dialog closes automatically when PLC confirms.</small>',
+                footer: '<button class="swal-cancel-btn" onclick="cancelAction()">✖ Cancel Import</button>',
                 allowOutsideClick: false,
                 allowEscapeKey:    false,
                 showConfirmButton: false,
@@ -382,9 +382,9 @@
 
         function showExportDialog(slotLabel) {
             Swal.fire({
-                title: 'Đang xuất hàng...',
-                html:  `Robot đang di chuyển đến <b>${slotLabel || '...'}</b>.<br><small style="color:#aaa">Hộp thoại tự đóng sau khi PLC xác nhận xong.</small>`,
-                footer: '<button class="swal-cancel-btn" onclick="cancelAction()">✖ Hủy xuất hàng</button>',
+                title: 'Exporting...',
+                html:  `Robot is moving to <b>${slotLabel || '...'}</b>.<br><small style="color:#aaa">Dialog closes automatically when PLC confirms.</small>`,
+                footer: '<button class="swal-cancel-btn" onclick="cancelAction()">✖ Cancel Export</button>',
                 allowOutsideClick: false,
                 allowEscapeKey:    false,
                 showConfirmButton: false,
