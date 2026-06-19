@@ -250,6 +250,29 @@ def plc_start(slot_id):
         sys_state["_sim_timer"] = time.time() + 5.0
         log("[SIM] PLC sẽ báo DONE sau 5 giây...", CYAN, "SIM")
 
+def _do_emergency_reset():
+    """Reset khẩn cấp PLC và trạng thái hệ thống — dùng chung cho EMERGENCY_RESET, CANCEL."""
+    write_plc_bit(CONTROL_BYTE, BUSY_BIT, False)
+    write_plc_bit(CONTROL_BYTE, DONE_BIT, False)
+    write_plc_slot(-1)
+    for k in ("_sim_busy", "_sim_done"):
+        sys_state[k] = False
+    sys_state["_sim_timer"] = 0.0
+    sys_state.update({
+        "is_busy":        False,
+        "current_slot":   "N/A",
+        "pending_action": None,
+        "pending_slot":   None,
+        "pending_uid":    None,
+        "pending_item":   None,
+    })
+    _pub("warehouse/robot_state",
+         {"state": "IDLE", "slot": "N/A", "message": "RESET / CANCELLED"}, retain=True)
+    _pub("warehouse/ack", {"action": "RESET"})
+    publish_device_status()
+    publish_motor_data()
+    log("Emergency reset hoàn thành.", YELLOW, "RESET")
+
 # ══════════════════════════════════════════════════════════════════════════════
 #  PUBLISH HELPERS
 # ══════════════════════════════════════════════════════════════════════════════
@@ -304,7 +327,15 @@ def publish_motor_data():
 
 def publish_maintenance(active: bool):
     ts = datetime.now().strftime("%H:%M:%S %d/%m/%Y")
-    _pub("warehouse/maintenance_mode", {"active": active, "timestamp": ts}, retain=True)
+    payload = {"active": active, "timestamp": ts}
+    # Retain=True để message tồn tại sau reconnect;
+    # Khi active=False (AUTO) vẫn retain để ghi đè retained cũ
+    try:
+        mqtt_client.publish("warehouse/maintenance_mode",
+                            json.dumps(payload, ensure_ascii=False),
+                            retain=True)
+    except Exception:
+        pass
     sys_state["maintenance_mode"] = active
     sys_state["maintenance_ts"]   = ts if active else ""
     status = "BẬT" if active else "TẮT"
@@ -395,29 +426,80 @@ def find_nearest_slot(db):
     return None
 
 def handle_import(uid_from_web="", item_from_web=""):
+    """Luồng IMPORT với bước chờ RFID:
+    1. Tìm slot trống
+    2. Publish WAITING_RFID → Web hiện dialog chờ quét
+    3. Giả lập đọc RFID (hoặc dùng UID từ web)
+    4. Publish rfid_result {success, uid, message}
+    5. Nếu thành công → MOVING → PLC → ACK
+       Nếu thất bại → IDLE + error
+    """
     if sys_state["is_busy"]:
-        mqtt_client.publish("warehouse/error", "System busy")
+        _pub("warehouse/error", {"message": "System busy"})
         log("IMPORT bị từ chối: hệ thống bận", YELLOW, "CMD")
         return
 
     db      = load_json(DB_PATH, {})
     slot_id = find_nearest_slot(db)
     if slot_id is None:
-        mqtt_client.publish("warehouse/error", "Warehouse full!")
+        _pub("warehouse/error", {"message": "Warehouse full!"})
         log("IMPORT bị từ chối: kho đầy", RED, "CMD")
         return
 
     log(f"IMPORT → Slot {slot_id} | UID={uid_from_web} | Item={item_from_web}", GREEN, "CMD")
 
+    # ── BƯỚC 1: Thông báo đang chờ quét RFID ──────────────────────────────
+    sys_state["is_busy"]      = True
+    sys_state["current_slot"] = str(slot_id)
     _pub("warehouse/robot_state",
-         {"state": "WAITING_RFID", "slot": str(slot_id), "message": ""}, retain=True)
+         {"state": "WAITING_RFID", "slot": str(slot_id), "message": "Đặt thẻ RFID vào đầu đọc"}, retain=True)
 
-    # Laptop mode: dùng UID từ web thay cho RFID reader
-    tag_uid   = str(uid_from_web).strip() if uid_from_web and uid_from_web != "N/A" else "SIM_UID"
+    # ── BƯỚC 2: Giả lập thời gian chờ quét RFID (2 giây) ─────────────────
+    # Trên Raspberry Pi thực, đây là nơi đọc mfrc522
+    time.sleep(2.0)
+
+    # Kiểm tra nếu bị hủy trong khi chờ
+    if not sys_state["is_busy"]:
+        log("IMPORT bị hủy trong khi chờ RFID", YELLOW, "CMD")
+        return
+
+    # ── BƯỚC 3: Xử lý kết quả RFID ────────────────────────────────────────
+    # Laptop mode: UID từ web = RFID tag. Nếu trống → giả lập scan thành công với SIM_UID
+    if uid_from_web and str(uid_from_web).strip() and str(uid_from_web).strip() != "N/A":
+        tag_uid  = str(uid_from_web).strip()
+        rfid_ok  = True
+        rfid_msg = f"Quét thẻ thành công: {tag_uid}"
+        log(f"RFID OK: uid={tag_uid}", GREEN, "RFID")
+    else:
+        # Giả lập: 90% thành công, 10% lỗi (để test)
+        import random
+        rfid_ok  = True  # Đặt False để test lỗi RFID
+        tag_uid  = f"SIM_{random.randint(10000,99999)}"
+        rfid_msg = f"Quét thẻ thành công (giả lập): {tag_uid}"
+        log(f"RFID SIMULATE OK: uid={tag_uid}", CYAN, "RFID")
+
+    # Publish kết quả RFID để web nhận
+    _pub("warehouse/rfid_result", {
+        "success": rfid_ok,
+        "uid":     tag_uid if rfid_ok else "",
+        "slot":    slot_id,
+        "message": rfid_msg if rfid_ok else "Quét thẻ RFID thất bại! Không đọc được thẻ."
+    })
+
+    if not rfid_ok:
+        # ── Thất bại: dừng ngay, reset hệ thống ──────────────────────────
+        sys_state["is_busy"]      = False
+        sys_state["current_slot"] = "N/A"
+        _pub("warehouse/robot_state",
+             {"state": "IDLE", "slot": "N/A", "message": "RFID scan failed"}, retain=True)
+        log("IMPORT thất bại: RFID không đọc được", RED, "RFID")
+        return
+
     item_name = str(item_from_web).strip() or "Linh kien"
 
+    # ── BƯỚC 4: Di chuyển robot đến slot ──────────────────────────────────
     _pub("warehouse/robot_state",
-         {"state": "MOVING", "slot": str(slot_id), "message": ""}, retain=True)
+         {"state": "MOVING", "slot": str(slot_id), "message": f"Di chuyển đến Slot {slot_id}"}, retain=True)
 
     # Ghi PLC
     plc_start(slot_id)
@@ -497,7 +579,8 @@ def on_connect(c, u, flags, rc, p=None):
         log("MQTT kết nối thành công!", GREEN, "MQTT")
         c.subscribe("warehouse/command")
         c.subscribe("warehouse/set_maintenance")
-        log("Đã subscribe: warehouse/command, warehouse/set_maintenance", CYAN, "MQTT")
+        c.subscribe("warehouse/cancel_operation")   # Nhận lệnh hủy từ web
+        log("Đã subscribe: warehouse/command, warehouse/set_maintenance, warehouse/cancel_operation", CYAN, "MQTT")
         # Phát lại trạng thái bảo trì khi reconnect
         publish_maintenance(sys_state["maintenance_mode"])
     else:
@@ -526,27 +609,16 @@ def on_message(client, userdata, msg):
 
         log(f"→ Xử lý lệnh: {act}", YELLOW, "CMD")
 
-        if act == "EMERGENCY_RESET":
+        if topic == "warehouse/cancel_operation":
+            # Lệnh hủy từ web (nút Hủy trong dialog)
+            log("HỦY THAO TÁC nhận được từ web!", RED, "CMD")
+            _do_emergency_reset()
+            return
+
+        if act == "EMERGENCY_RESET" or act == "CANCEL":
             log("EMERGENCY RESET nhận được!", RED, "CMD")
-            write_plc_bit(CONTROL_BYTE, BUSY_BIT, False)
-            write_plc_bit(CONTROL_BYTE, DONE_BIT, False)
-            write_plc_slot(-1)
-            for k in ("_sim_busy","_sim_done"):
-                sys_state[k] = False
-            sys_state["_sim_timer"] = 0.0
-            sys_state.update({
-                "is_busy":        False,
-                "current_slot":   "N/A",
-                "pending_action": None,
-                "pending_slot":   None,
-                "pending_uid":    None,
-                "pending_item":   None,
-            })
-            _pub("warehouse/robot_state",
-                 {"state": "IDLE", "slot": "N/A", "message": "RESET"}, retain=True)
-            _pub("warehouse/ack", {"action": "RESET"})
-            publish_device_status()
-            publish_motor_data()
+            _do_emergency_reset()
+
 
         elif act == "IMPORT":
             if sys_state["maintenance_mode"]:

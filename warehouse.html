@@ -173,7 +173,495 @@
         // ── STATE ──────────────────────────────────────────────────────────────
         let isPlcConnected = true;
         let isSystemBusy   = false;
-        let activeSlot     = null;   // slot currently operated by Pi
+        let activeSlot     = null;
+        let selectedSlotId = null;
+        let currentAction  = null;
+        let mqttClient     = null;
+        let timeInterval   = null;
+        // Trạng thái luồng IMPORT/EXPORT
+        let _dialogPhase   = null; // null | 'waiting_rfid' | 'moving' | 'done'
+        let _cancelRequested = false;
+
+        const defaultData = Object.fromEntries(
+            Array.from({length: 9}, (_, i) => [i + 1, { uid: null, status: 'available' }])
+        );
+        let slotData = JSON.parse(localStorage.getItem('warehouseDataV2')) || defaultData;
+
+        // ── GRID ───────────────────────────────────────────────────────────────
+        function initGrid() {
+            const container = document.getElementById('gridContainer');
+            container.innerHTML = '';
+            if (!slotData || !slotData[1]) {
+                slotData = JSON.parse(JSON.stringify(defaultData));
+                localStorage.setItem('warehouseDataV2', JSON.stringify(slotData));
+            }
+            for (let i = 1; i <= 9; i++) {
+                const d = slotData[i];
+                const isAvail = d.status === 'available';
+                const isActive = (activeSlot === i);
+                let cardClass = isActive ? 'active' : d.status;
+                let statusText = isActive ? '⚙️ Processing...' : (isAvail ? 'Empty' : escapeHtml(d.item || d.uid || ''));
+                container.innerHTML += `
+                    <div class="slot-card ${cardClass}" id="slotCard-${i}" onclick="selectSlot(${i})">
+                        <div class="slot-number">Slot ${i}</div>
+                        <div class="status-text">${statusText}</div>
+                    </div>`;
+            }
+            if (selectedSlotId) {
+                const el = document.getElementById(`slotCard-${selectedSlotId}`);
+                if (el && !el.classList.contains('active')) el.classList.add('selected');
+            }
+            document.getElementById('gridPanel').classList.toggle('busy', isSystemBusy);
+        }
+
+        function selectSlot(id) {
+            if (isSystemBusy) return;
+            document.querySelectorAll('.slot-card').forEach(el => el.classList.remove('selected'));
+            const card = document.getElementById(`slotCard-${id}`);
+            if (card) card.classList.add('selected');
+            selectedSlotId = id;
+            const d = slotData[id];
+            document.getElementById('uidInput').value = (d && d.uid) ? d.uid : '';
+        }
+
+        // ── SYNC GRID FROM PI ──────────────────────────────────────────────────
+        function syncGridFromPi(piDb) {
+            if (!piDb || typeof piDb !== 'object') return;
+            for (let i = 1; i <= 9; i++) {
+                const info = piDb[`slot_${i}`] || { status: 'Available' };
+                slotData[i] = {
+                    uid:    info.status === 'Occupied' ? info.uid       : null,
+                    item:   info.status === 'Occupied' ? (info.item_name || info.uid) : null,
+                    status: info.status === 'Occupied' ? 'occupied' : 'available'
+                };
+            }
+            localStorage.setItem('warehouseDataV2', JSON.stringify(slotData));
+            initGrid();
+        }
+
+        // ── STATUS DISPLAY ─────────────────────────────────────────────────────
+        const STATE_CFG = {
+            IDLE:         { icon: '✅', text: 'System Ready',         cls: 'idle'  },
+            WAITING_RFID: { icon: '📡', text: 'Waiting for RFID...', cls: 'busy'  },
+            MOVING:       { icon: '🚗', text: 'Moving...',            cls: 'busy'  },
+            ERROR:        { icon: '🔴', text: 'System Error',         cls: 'error' },
+            DISCONNECTED: { icon: '🔌', text: 'PLC Disconnected',     cls: ''      },
+        };
+
+        function setStatusDisplay(state, sub) {
+            const cfg = STATE_CFG[state] || STATE_CFG.IDLE;
+            document.getElementById('sysStatusIcon').textContent = cfg.icon;
+            document.getElementById('sysStatusText').textContent = cfg.text;
+            document.getElementById('sysStatusSub').textContent  = sub || '';
+            const box = document.getElementById('sysStatusBox');
+            box.className = 'sys-status-box ' + cfg.cls;
+        }
+
+        function updateStatusBar() {
+            const badge = document.getElementById('statusBadge');
+            badge.textContent = isSystemBusy ? 'RUNNING' : 'READY';
+            badge.className   = isSystemBusy ? 'bg-orange' : 'bg-green';
+            const tBadge = document.getElementById('targetSlotBadge');
+            tBadge.textContent = activeSlot ? `Slot ${activeSlot}` : 'N/A';
+            tBadge.style.background = activeSlot ? '#f39c12' : '#555';
+        }
+
+        function updateButtons() {
+            const off = !isPlcConnected || isSystemBusy;
+            document.getElementById('importBtn').disabled = off;
+            document.getElementById('exportBtn').disabled = off;
+        }
+
+        // ── HỦY THAO TÁC ──────────────────────────────────────────────────────
+        function cancelAction() {
+            Swal.fire({
+                title: 'Xác nhận hủy?',
+                html: `Bạn có chắc muốn <b>hủy thao tác</b> không?<br><small style="color:#e74c3c;">Hệ thống sẽ dừng lại ngay lập tức.</small>`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#c0392b',
+                cancelButtonColor: '#555',
+                confirmButtonText: '✖ Hủy thao tác',
+                cancelButtonText: 'Tiếp tục'
+            }).then(result => {
+                if (!result.isConfirmed) return;
+                _doCancelOperation();
+            });
+        }
+
+        function _doCancelOperation() {
+            _cancelRequested = true;
+            _dialogPhase = null;
+            // Gửi lệnh hủy tới backend
+            if (mqttClient && mqttClient.connected) {
+                mqttClient.publish('warehouse/command', JSON.stringify({ action: 'EMERGENCY_RESET' }));
+                mqttClient.publish('warehouse/cancel_operation', JSON.stringify({ reason: 'user_cancel' }));
+            }
+            sessionStorage.removeItem('_imp');
+            sessionStorage.removeItem('_exp');
+            isSystemBusy  = false;
+            activeSlot    = null;
+            currentAction = null;
+            setStatusDisplay('IDLE');
+            updateStatusBar();
+            updateButtons();
+            initGrid();
+            Swal.fire({
+                title: 'Đã hủy thao tác!',
+                text: 'Lệnh dừng đã được gửi tới hệ thống.',
+                icon: 'info',
+                timer: 2500,
+                showConfirmButton: false
+            });
+        }
+
+        // ── DIALOG PHASE 1: Chờ RFID ──────────────────────────────────────────
+        function showRfidWaitingDialog(slotNum) {
+            _dialogPhase = 'waiting_rfid';
+            Swal.fire({
+                title: '📡 Quét thẻ RFID',
+                html: `
+                    <div style="margin-bottom:12px; font-size:15px;">
+                        Đặt thẻ RFID vào đầu đọc để xác nhận hàng nhập.<br>
+                        <small style="color:#aaa;">Robot sẽ di chuyển đến <b>Slot ${slotNum}</b> sau khi quét thành công.</small>
+                    </div>
+                    <div style="font-size:40px; animation: pulse-rfid 1s infinite;">📟</div>
+                    <style>
+                        @keyframes pulse-rfid { 0%,100%{transform:scale(1);} 50%{transform:scale(1.15);} }
+                    </style>`,
+                footer: `<button class="swal-cancel-btn" onclick="cancelAction()">✖ Hủy thao tác</button>`,
+                allowOutsideClick: false,
+                allowEscapeKey:    false,
+                showConfirmButton: false,
+                didOpen: () => Swal.showLoading()
+            });
+        }
+
+        // ── DIALOG PHASE 2: RFID thành công → đang vận chuyển ────────────────
+        function showMovingDialog(slotNum, uid) {
+            _dialogPhase = 'moving';
+            Swal.fire({
+                title: '🚗 Đang vận chuyển...',
+                html: `
+                    <div style="margin-bottom:8px;">
+                        Robot đang di chuyển đến <b>Slot ${slotNum}</b>.<br>
+                        <small style="color:#aaa;">Thẻ RFID: <code>${uid}</code></small>
+                    </div>
+                    <small style="color:#aaa;">Dialog sẽ tự đóng khi PLC xác nhận hoàn thành.</small>`,
+                footer: `<button class="swal-cancel-btn" onclick="cancelAction()">✖ Hủy thao tác</button>`,
+                allowOutsideClick: false,
+                allowEscapeKey:    false,
+                showConfirmButton: false,
+                didOpen: () => Swal.showLoading()
+            });
+        }
+
+        // ── DIALOG PHASE 2b: Export đang vận chuyển ──────────────────────────
+        function showExportMovingDialog(slotLabel) {
+            _dialogPhase = 'moving';
+            Swal.fire({
+                title: '📤 Đang xuất hàng...',
+                html: `Robot đang di chuyển đến <b>${slotLabel || '...'}</b>.<br>
+                       <small style="color:#aaa;">Dialog sẽ tự đóng khi PLC xác nhận hoàn thành.</small>`,
+                footer: `<button class="swal-cancel-btn" onclick="cancelAction()">✖ Hủy thao tác</button>`,
+                allowOutsideClick: false,
+                allowEscapeKey:    false,
+                showConfirmButton: false,
+                didOpen: () => Swal.showLoading()
+            });
+        }
+
+        // ── XỬ LÝ KẾT QUẢ RFID TỪ BACKEND ───────────────────────────────────
+        function handleRfidResult(data) {
+            if (_dialogPhase !== 'waiting_rfid') return;
+            if (data.success) {
+                // Quét thành công → chuyển sang dialog vận chuyển
+                showMovingDialog(data.slot, data.uid);
+            } else {
+                // Quét thất bại → dừng ngay, báo lỗi
+                _dialogPhase = null;
+                sessionStorage.removeItem('_imp');
+                isSystemBusy  = false;
+                activeSlot    = null;
+                currentAction = null;
+                setStatusDisplay('ERROR', 'RFID scan failed');
+                updateStatusBar();
+                updateButtons();
+                initGrid();
+                Swal.fire({
+                    title: '❌ Quét thẻ thất bại!',
+                    html: `<b style="color:#e74c3c;">${data.message || 'Không đọc được thẻ RFID.'}</b><br>
+                           <small>Thao tác đã bị dừng. Vui lòng thử lại.</small>`,
+                    icon: 'error',
+                    confirmButtonText: 'Đóng',
+                    confirmButtonColor: '#e74c3c'
+                }).then(() => {
+                    setStatusDisplay('IDLE');
+                    updateStatusBar();
+                });
+            }
+        }
+
+        // ── MQTT MESSAGES FROM PI ─────────────────────────────────────────────
+        function handleRobotState(data) {
+            const state = (data.state || 'IDLE').toUpperCase();
+            const slot  = data.slot && data.slot !== 'N/A' ? parseInt(data.slot) : null;
+
+            activeSlot   = (state !== 'IDLE') ? slot : null;
+            isSystemBusy = (state !== 'IDLE');
+
+            if (state === 'IDLE') {
+                currentAction = null;
+                sessionStorage.removeItem('_imp');
+                sessionStorage.removeItem('_exp');
+            }
+
+            const sub = slot ? `Slot ${slot}` : '';
+            setStatusDisplay(state, sub);
+            updateStatusBar();
+            updateButtons();
+            initGrid();
+        }
+
+        function handleAck(data) {
+            const action = typeof data === 'object' ? (data.action || '') : '';
+            if (action === 'RESET') {
+                // Đã hủy thành công — bỏ qua, _doCancelOperation đã xử lý UI
+                return;
+            }
+            const slot = typeof data === 'object' && data.slot ? `Slot ${data.slot}` : '';
+            const uid  = typeof data === 'object' && data.uid  ? `UID: ${data.uid}`  : '';
+            const msg  = [slot, uid].filter(Boolean).join(' — ') || 'Thao tác thành công!';
+
+            isSystemBusy  = false;
+            activeSlot    = null;
+            currentAction = null;
+            _dialogPhase  = null;
+            setStatusDisplay('IDLE');
+            updateStatusBar();
+            updateButtons();
+
+            if (typeof data === 'object' && data.slot) {
+                const sid = parseInt(data.slot);
+                if (action === 'IMPORT' && data.uid) {
+                    slotData[sid] = { uid: data.uid, item: data.item || data.uid || '', status: 'occupied' };
+                } else if (action === 'EXPORT') {
+                    slotData[sid] = { uid: null, status: 'available' };
+                }
+                localStorage.setItem('warehouseDataV2', JSON.stringify(slotData));
+            }
+            initGrid();
+            document.getElementById('uidInput').value = '';
+            selectedSlotId = null;
+
+            if (action === 'IMPORT' || action === 'EXPORT') {
+                const key   = action === 'IMPORT' ? '_imp' : '_exp';
+                const title = action === 'IMPORT' ? '✅ Nhập hàng thành công!' : '✅ Xuất hàng thành công!';
+                sessionStorage.removeItem(key);
+                if (Swal.isVisible()) {
+                    Swal.hideLoading();
+                    Swal.update({ title, html: `<span style="font-size:40px">✅</span><br><b>${msg}</b>`, footer: '', showConfirmButton: false });
+                    setTimeout(() => Swal.close(), 3000);
+                } else {
+                    Swal.fire({ title, text: msg, icon: 'success', timer: 3000, showConfirmButton: false });
+                }
+            }
+        }
+
+        // ── PROCESS ACTION (AUTO MODE) ─────────────────────────────────────────
+        function processAction(actionType) {
+            if (!isPlcConnected) { Swal.fire('Cảnh báo', 'Vui lòng kết nối PLC trước!', 'warning'); return; }
+            if (isSystemBusy)    { Swal.fire('Thông báo', 'Hệ thống đang bận, vui lòng chờ!', 'info'); return; }
+
+            const uid = document.getElementById('uidInput').value.trim();
+
+            if (actionType === 'EXPORT' && !uid && !selectedSlotId) {
+                Swal.fire('Thông báo', 'Vui lòng chọn slot trên bản đồ hoặc nhập UID!', 'warning');
+                return;
+            }
+
+            if (actionType === 'IMPORT') {
+                // Hiện dialog xác nhận thông tin trước khi gửi lệnh
+                _showImportConfirmDialog(uid);
+            } else {
+                // EXPORT: gửi lệnh ngay, hiện dialog đang vận chuyển
+                _startExport(uid);
+            }
+        }
+
+        function _showImportConfirmDialog(uid) {
+            Swal.fire({
+                title: '📥 Xác nhận nhập hàng',
+                html: `
+                    <div style="text-align:left; margin-bottom:8px;">
+                        <b>Thông tin sản phẩm:</b><br>
+                        <span style="font-family:monospace; background:#eee; padding:4px 10px; border-radius:4px; display:inline-block; margin-top:4px;">
+                            ${uid ? escapeHtml(uid) : '<em style="color:#aaa;">Không có (sẽ dùng RFID)</em>'}
+                        </span>
+                    </div>
+                    <div style="font-size:13px; color:#555;">
+                        Sau khi nhấn <b>"Nhập hàng"</b>, hệ thống sẽ:<br>
+                        1. Yêu cầu quét thẻ RFID<br>
+                        2. Robot di chuyển đến slot trống
+                    </div>`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#00529c',
+                cancelButtonColor: '#888',
+                confirmButtonText: '📥 Nhập hàng',
+                cancelButtonText: '✖ Hủy'
+            }).then(result => {
+                if (!result.isConfirmed) return;
+                _startImport(uid);
+            });
+        }
+
+        function _startImport(uid) {
+            _cancelRequested = false;
+            isSystemBusy  = true;
+            currentAction = 'IMPORT';
+
+            const cmd = { action: 'IMPORT', uid: uid, item: uid };
+            if (mqttClient && mqttClient.connected) {
+                mqttClient.publish('warehouse/command', JSON.stringify(cmd));
+            }
+            sessionStorage.setItem('_imp', '1');
+
+            // Hiện dialog chờ RFID — slot sẽ được update khi nhận WAITING_RFID state
+            setStatusDisplay('WAITING_RFID', '');
+            updateStatusBar();
+            updateButtons();
+            // Dialog chờ RFID (slot # sẽ được biết từ robot_state)
+            showRfidWaitingDialog('...');
+        }
+
+        function _startExport(uid) {
+            _cancelRequested = false;
+            const cmd = { action: 'EXPORT', uid: uid, item: uid };
+            if (selectedSlotId) cmd.slot_id = selectedSlotId;
+
+            isSystemBusy  = true;
+            currentAction = 'EXPORT';
+            const label = selectedSlotId ? `Slot ${selectedSlotId}` : (uid ? uid : '...');
+            setStatusDisplay('MOVING', label);
+            updateStatusBar();
+            updateButtons();
+
+            if (mqttClient && mqttClient.connected) {
+                mqttClient.publish('warehouse/command', JSON.stringify(cmd));
+            }
+            sessionStorage.setItem('_exp', label);
+            showExportMovingDialog(label);
+        }
+
+        // ── PLC / MQTT ─────────────────────────────────────────────────────────
+        function updatePlcUI() {
+            const badge = document.getElementById('plcBadge');
+            badge.className = isPlcConnected ? 'bg-green' : 'bg-red';
+            badge.innerText = isPlcConnected ? 'CONNECTED' : 'DISCONNECTED';
+            if (isPlcConnected) setStatusDisplay('IDLE');
+            updateButtons();
+        }
+
+        function connectMQTT() {
+            if (typeof mqtt === 'undefined') { Swal.fire('Lỗi', 'Không tải được thư viện MQTT', 'error'); return; }
+            mqttClient = mqtt.connect(MQTT_CFG.url, { ...MQTT_CFG.options, clientId: getClientId('warehouse') });
+
+            mqttClient.on('connect', () => {
+                isPlcConnected = true;
+                updatePlcUI();
+                mqttClient.subscribe([
+                    'warehouse/robot_state',
+                    'warehouse/ack',
+                    'warehouse/error',
+                    'warehouse/slot_data',
+                    'warehouse/rfid_result'   // ← lắng nghe kết quả RFID
+                ]);
+                setTimeout(() => mqttClient.publish('warehouse/command', JSON.stringify({ action: 'GET_STATUS' })), 600);
+            });
+
+            mqttClient.on('disconnect', () => { isPlcConnected = false; updatePlcUI(); });
+            mqttClient.on('error',      () => { isPlcConnected = false; updatePlcUI(); });
+
+            mqttClient.on('message', (t, m) => {
+                let data;
+                try { data = JSON.parse(m.toString()); } catch(e) { data = m.toString(); }
+
+                if (t === 'warehouse/robot_state') {
+                    handleRobotState(data);
+                    // Cập nhật dialog chờ RFID với số slot thực tế
+                    if (_dialogPhase === 'waiting_rfid' && data.slot && data.slot !== 'N/A') {
+                        const slotNum = data.slot;
+                        if (Swal.isVisible()) {
+                            Swal.update({
+                                title: `📡 Quét thẻ RFID — Slot ${slotNum}`,
+                            });
+                        }
+                    }
+                }
+                if (t === 'warehouse/ack')         handleAck(data);
+                if (t === 'warehouse/slot_data')   syncGridFromPi(data);
+                if (t === 'warehouse/rfid_result') handleRfidResult(data);
+                if (t === 'warehouse/error') {
+                    const msg = typeof data === 'string' ? data : (data.message || JSON.stringify(data));
+                    sessionStorage.removeItem('_imp');
+                    sessionStorage.removeItem('_exp');
+                    isSystemBusy  = false;
+                    activeSlot    = null;
+                    currentAction = null;
+                    _dialogPhase  = null;
+                    setStatusDisplay('ERROR', msg);
+                    updateStatusBar();
+                    updateButtons();
+                    initGrid();
+                    Swal.fire({
+                        title: '❌ Lỗi hệ thống',
+                        text: msg,
+                        icon: 'error',
+                        confirmButtonColor: '#e74c3c'
+                    });
+                }
+            });
+        }
+
+        function escapeHtml(str) {
+            return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        window.addEventListener('beforeunload', () => { if (mqttClient) mqttClient.end(true); });
+
+        window.onload = () => {
+            const user = JSON.parse(sessionStorage.getItem('loggedUser') || '{}');
+            if (user && user.username) document.getElementById('userName').textContent = user.username;
+
+            initGrid();
+            updatePlcUI();
+            // Khôi phục dialog nếu trang reload trong lúc thao tác
+            if (sessionStorage.getItem('_imp')) {
+                isSystemBusy  = true;
+                currentAction = 'IMPORT';
+                setStatusDisplay('MOVING');
+                updateStatusBar();
+                updateButtons();
+                _dialogPhase = 'moving';
+                showRfidWaitingDialog('...');
+            } else if (sessionStorage.getItem('_exp')) {
+                isSystemBusy  = true;
+                currentAction = 'EXPORT';
+                setStatusDisplay('MOVING');
+                updateStatusBar();
+                updateButtons();
+                showExportMovingDialog(sessionStorage.getItem('_exp'));
+            }
+            connectMQTT();
+            timeInterval = setInterval(() => {
+                document.getElementById('lastUpdate').innerText = new Date().toLocaleTimeString('vi-VN');
+            }, 1000);
+        };
+    </script>
+</body>
+</html>
+
         let selectedSlotId = null;   // slot selected by user for EXPORT
         let currentAction  = null;   // 'IMPORT' | 'EXPORT' | null
         let mqttClient     = null;
