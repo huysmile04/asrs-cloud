@@ -1,0 +1,38 @@
+{
+  "slot_1": {
+    "id": 1,
+    "status": "Available"
+  },
+  "slot_2": {
+    "id": 2,
+    "status": "Available"
+  },
+  "slot_3": {
+    "id": 3,
+    "status": "Available"
+  },
+  "slot_4": {
+    "id": 4,
+    "status": "Available"
+  },
+  "slot_5": {
+    "id": 5,
+    "status": "Available"
+  },
+  "slot_6": {
+    "id": 6,
+    "status": "Available"
+  },
+  "slot_7": {
+    "id": 7,
+    "status": "Available"
+  },
+  "slot_8": {
+    "id": 8,
+    "status": "Available"
+  },
+  "slot_9": {
+    "id": 9,
+    "status": "Available"
+  }
+}

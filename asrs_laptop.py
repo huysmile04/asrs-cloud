@@ -15,6 +15,12 @@ from datetime import datetime
 import psutil
 import paho.mqtt.client as mqtt
 
+# ── Fix encoding UTF-8 cho Windows console ────────────────────────────────────
+if sys.platform == "win32":
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+
 # ─── Kiểm tra snap7 ──────────────────────────────────────────────────────────
 try:
     import snap7
@@ -28,7 +34,13 @@ except ImportError:
 # ══════════════════════════════════════════════════════════════════════════════
 #  CẤU HÌNH — Chỉnh sửa theo môi trường của bạn
 # ══════════════════════════════════════════════════════════════════════════════
-SIMULATE_PLC = not SNAP7_OK   # True = giả lập PLC (không cần kết nối thực)
+# ─────────────────────────────────────────────────────────────────────────────
+#  OFFLINE_MODE = True  → Không kết nối PLC thực, chỉ in lệnh ra console.
+#                          Dùng khi chưa có điện / chưa có PLC.
+#  OFFLINE_MODE = False → Dùng PLC thực (SIMULATE_PLC sẽ tự quyết dựa theo snap7).
+# ─────────────────────────────────────────────────────────────────────────────
+OFFLINE_MODE  = True           # ← ĐỔI THÀNH False KHI CÓ PLC THỰC
+SIMULATE_PLC  = OFFLINE_MODE or (not SNAP7_OK)   # True = giả lập PLC
 
 PLC_IP       = "192.168.0.1"
 DB_NUMBER    = 14
@@ -162,8 +174,10 @@ else:
     plc_lock = threading.Lock()
 
 def _plc_connect():
-    if SIMULATE_PLC:
+    if SIMULATE_PLC:  # bao gồm cả OFFLINE_MODE
         sys_state["plc_connected"] = True
+        if OFFLINE_MODE:
+            log("OFFLINE MODE — PLC giả lập (không kết nối thực)", YELLOW, "PLC")
         return
     try:
         plc.connect(PLC_IP, 0, 1)
@@ -178,13 +192,13 @@ def write_plc_bit(byte_off, bit_off, value):
     desc = f"DB{DB_NUMBER}.B{byte_off}.{bit_off} = {'1' if value else '0'}"
     log_plc_cmd(direction, desc, payload)
 
-    if SIMULATE_PLC:
+    if SIMULATE_PLC:  # OFFLINE_MODE cũng vào đây
         if byte_off == CONTROL_BYTE:
             if bit_off == BUSY_BIT:
                 sys_state["_sim_busy"] = value
             elif bit_off == DONE_BIT:
                 sys_state["_sim_done"] = value
-        return
+        return  # ← không gửi TCP
     with plc_lock:
         try:
             data = plc.db_read(DB_NUMBER, byte_off, 1)
@@ -198,9 +212,10 @@ def write_plc_slot(slot_index):
     desc = f"DB{DB_NUMBER}.W{TARGET_ADDR} = {slot_index}  (slot_index 0-based)"
     log_plc_cmd("→ PLC WRITE INT", desc, payload)
 
-    if SIMULATE_PLC:
-        log(f"[SIM] Target slot set to {slot_index}", CYAN, "SIM")
-        return
+    if SIMULATE_PLC:  # OFFLINE_MODE cũng vào đây
+        mode_tag = "OFFLINE" if OFFLINE_MODE else "SIM"
+        log(f"[{mode_tag}] Target slot set to {slot_index}", CYAN, mode_tag)
+        return  # ← không gửi TCP
     with plc_lock:
         try:
             data = bytearray(2)
@@ -303,7 +318,7 @@ def monitor_logic():
     log("Monitor thread khởi động.", CYAN, "MON")
     while True:
         # ── Kết nối PLC ────────────────────────────────────────────────────
-        if not SIMULATE_PLC:
+        if not SIMULATE_PLC:  # chỉ thử reconnect khi KHÔNG phải offline/sim
             connected = plc.get_connected() if SNAP7_OK else False
             if not connected:
                 sys_state["plc_connected"] = False
@@ -603,6 +618,7 @@ mqtt_client.tls_set(cert_reqs=ssl.CERT_REQUIRED)
 mqtt_client.username_pw_set(MQTT_USER, MQTT_PASS)
 
 def print_banner():
+    mode_label = f"{RED}OFFLINE (không kết nối PLC){RESET}" if OFFLINE_MODE else (f"{YELLOW}SIMULATE{RESET}" if SIMULATE_PLC else f"{GREEN}PLC THỰC{RESET}")
     print(f"""
 {BOLD}{CYAN}╔══════════════════════════════════════════════════════════════╗
 ║         AS/RS MASTER CONTROLLER — LAPTOP VERSION             ║
@@ -611,7 +627,7 @@ def print_banner():
 
 {YELLOW}Cấu hình:{RESET}
   • PLC IP       : {PLC_IP}  (DB{DB_NUMBER})
-  • SIMULATE PLC : {SIMULATE_PLC}
+  • CHẾ ĐỘ PLC  : {mode_label}
   • MQTT         : {MQTT_HOST}:{MQTT_PORT}
   • Dữ liệu      : {DATA_DIR}
   • Log PLC      : {LOG_PATH}
