@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -18,7 +19,8 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding-top: 50px; /* Khoảng cách từ trên cùng xuống */
+            padding-top: 50px;
+            /* Khoảng cách từ trên cùng xuống */
         }
 
         /* --- Phần Header (Logo và Tên trường) --- */
@@ -28,7 +30,8 @@
         }
 
         .header-section img {
-            height: 120px; /* Điều chỉnh kích thước logo */
+            height: 120px;
+            /* Điều chỉnh kích thước logo */
             margin-bottom: 20px;
         }
 
@@ -42,9 +45,11 @@
 
         /* --- Phần Khối Đăng Nhập (Màu xám) --- */
         .login-box {
-            background-color: #dadada; /* Màu nền xám giống thiết kế */
+            background-color: #dadada;
+            /* Màu nền xám giống thiết kế */
             width: 100%;
-            max-width: 800px; /* Độ rộng của khối xám */
+            max-width: 800px;
+            /* Độ rộng của khối xám */
             padding: 40px 60px 60px 60px;
             display: flex;
             flex-direction: column;
@@ -64,7 +69,8 @@
             width: 100%;
             display: flex;
             flex-direction: column;
-            gap: 25px; /* Khoảng cách giữa các ô input */
+            gap: 25px;
+            /* Khoảng cách giữa các ô input */
         }
 
         .login-form input {
@@ -78,12 +84,14 @@
 
         .login-form input::placeholder {
             color: #000000;
-            opacity: 1; /* Hiển thị rõ màu đen cho placeholder như trong ảnh */
+            opacity: 1;
+            /* Hiển thị rõ màu đen cho placeholder như trong ảnh */
         }
 
         /* Nút đăng nhập */
         .submit-btn {
-            background-color: #8cd3f5; /* Màu xanh nước biển nhạt */
+            background-color: #8cd3f5;
+            /* Màu xanh nước biển nhạt */
             color: #000000;
             font-weight: bold;
             font-size: 16px;
@@ -92,12 +100,14 @@
             padding: 15px 40px;
             margin-top: 30px;
             cursor: pointer;
-            align-self: center; /* Căn giữa nút */
+            align-self: center;
+            /* Căn giữa nút */
             width: 200px;
         }
 
         .submit-btn:hover {
-            background-color: #75c5ec; /* Đổi màu đậm hơn một chút khi di chuột vào */
+            background-color: #75c5ec;
+            /* Đổi màu đậm hơn một chút khi di chuột vào */
         }
 
         /* Responsive cho điện thoại */
@@ -106,44 +116,47 @@
                 padding: 30px 20px;
                 max-width: 90%;
             }
+
             .header-section h1 {
                 font-size: 20px;
             }
+
             .login-box h2 {
                 font-size: 28px;
             }
         }
     </style>
 </head>
+
 <body>
 
     <div class="header-section">
-        <img src="ute_logo.png" alt="Logo HCMUTE">
+        <img src="logo.png" alt="Logo HCMUTE">
         <h1>HCMC UNIVERSITY OF TECHNOLOGY<br>AND EDUCATION</h1>
     </div>
 
     <div class="login-box">
         <h2>SYSTEM LOGIN</h2>
-        
+
         <form class="login-form" action="#" method="POST" autocomplete="off">
             <input type="text" name="username" placeholder="Username" autocomplete="off" required>
             <input type="password" name="password" placeholder="Password" autocomplete="off" required>
-            
+
             <button type="submit" class="submit-btn">Login</button>
         </form>
     </div>
 
     <script>
         const _CREDS = { admin: '7ab5411a9ad9aaa0edd9379b98aa792dad7cdfa0b45427c9fca10a6fe418d53f' };
-        const _SALT  = 'HCMUTE-ASRS-2026';
+        const _SALT = 'HCMUTE-ASRS-2026';
 
         async function _h(pw) {
             const data = new TextEncoder().encode(_SALT + pw);
-            const buf  = await crypto.subtle.digest('SHA-256', data);
+            const buf = await crypto.subtle.digest('SHA-256', data);
             return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
         }
 
-        document.querySelector('.login-form').addEventListener('submit', async function(e) {
+        document.querySelector('.login-form').addEventListener('submit', async function (e) {
             e.preventDefault();
             const username = document.querySelector('input[name="username"]').value.trim();
             const password = document.querySelector('input[name="password"]').value;
@@ -159,4 +172,5 @@
         });
     </script>
 </body>
+
 </html>

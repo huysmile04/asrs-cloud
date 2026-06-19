@@ -1,79 +1,311 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Warehouse Map - Automated Storage System</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
-        body { background-color: #f4f7f6; color: #333; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+        }
+
+        body {
+            background-color: #f4f7f6;
+            color: #333;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
 
         /* === HEADER === */
-        header { background: #e5e5e5; padding: 15px 40px; border-bottom: 2px solid #ccc; display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 1100px; border-radius: 16px 16px 0 0; }
-        .logo img { height: 40px; margin-right: 10px; }
-        .user-info { font-weight: bold; }
-        .btn-header { color: white; border: none; padding: 8px 20px; font-size: 14px; border-radius: 4px; cursor: pointer; }
-        .back-btn { background: #556270; margin-right: 10px; }
-        .logout-btn { background: #c9302c; }
-        .back-btn:hover { background: #3f464e; }
-        .logout-btn:hover { background: #ac2925; }
+        header {
+            background: #e5e5e5;
+            padding: 15px 40px;
+            border-bottom: 2px solid #ccc;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 1100px;
+            border-radius: 16px 16px 0 0;
+        }
+
+        .logo img {
+            height: 40px;
+            margin-right: 10px;
+        }
+
+        .user-info {
+            font-weight: bold;
+        }
+
+        .btn-header {
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            font-size: 14px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .back-btn {
+            background: #556270;
+            margin-right: 10px;
+        }
+
+        .logout-btn {
+            background: #c9302c;
+        }
+
+        .back-btn:hover {
+            background: #3f464e;
+        }
+
+        .logout-btn:hover {
+            background: #ac2925;
+        }
 
         /* === DASHBOARD === */
-        .dashboard-container { width: 100%; max-width: 1100px; background: #fff; border-radius: 0 0 16px 16px; box-shadow: 0 8px 25px rgba(0,0,0,0.08); overflow: hidden; }
-        .status-bar { display: flex; justify-content: space-between; background: #1a252f; color: white; padding: 15px 30px; font-weight: bold; font-size: 14px; flex-wrap: wrap; gap: 8px; }
-        .status-item span { font-weight: normal; margin-left: 8px; padding: 4px 10px; border-radius: 20px; }
+        .dashboard-container {
+            width: 100%;
+            max-width: 1100px;
+            background: #fff;
+            border-radius: 0 0 16px 16px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
 
-        .main-content { display: flex; padding: 30px; gap: 40px; }
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            background: #1a252f;
+            color: white;
+            padding: 15px 30px;
+            font-weight: bold;
+            font-size: 14px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .status-item span {
+            font-weight: normal;
+            margin-left: 8px;
+            padding: 4px 10px;
+            border-radius: 20px;
+        }
+
+        .main-content {
+            display: flex;
+            padding: 30px;
+            gap: 40px;
+        }
 
         /* === CONTROL PANEL === */
-        .control-panel { flex: 1; background: #fdfdfd; border: 1px solid #eee; border-radius: 12px; padding: 25px; display: flex; flex-direction: column; gap: 15px; }
-        .control-panel h3 { color: #00529c; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-        .instruction { font-size: 13px; color: #666; background: #eef2f5; padding: 12px 15px; border-radius: 8px; border-left: 4px solid #3498db; line-height: 1.6; }
-        .input-group label { font-weight: bold; font-size: 14px; display: block; margin-bottom: 5px; }
-        .input-group input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 6px; outline: none; font-size: 14px; }
+        .control-panel {
+            flex: 1;
+            background: #fdfdfd;
+            border: 1px solid #eee;
+            border-radius: 12px;
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
 
-        .btn { padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; color: white; transition: 0.2s; text-align: center; font-size: 14px; }
-        .btn:hover:not(:disabled) { opacity: 0.9; transform: translateY(-2px); }
-        .btn:disabled { background-color: #ddd !important; color: #999 !important; cursor: not-allowed; transform: none !important; }
-        .action-buttons { display: flex; gap: 15px; }
-        .action-buttons .btn { flex: 1; padding: 14px; font-size: 15px; }
+        .control-panel h3 {
+            color: #00529c;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
 
-        .bg-green  { background-color: #2ecc71; }
-        .bg-red    { background-color: #e74c3c; }
-        .bg-blue   { background-color: #00529c; }
-        .bg-orange { background-color: #f39c12; }
+        .instruction {
+            font-size: 13px;
+            color: #666;
+            background: #eef2f5;
+            padding: 12px 15px;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+            line-height: 1.6;
+        }
+
+        .input-group label {
+            font-weight: bold;
+            font-size: 14px;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            outline: none;
+            font-size: 14px;
+        }
+
+        .btn {
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            color: white;
+            transition: 0.2s;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .btn:hover:not(:disabled) {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            background-color: #ddd !important;
+            color: #999 !important;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+        }
+
+        .action-buttons .btn {
+            flex: 1;
+            padding: 14px;
+            font-size: 15px;
+        }
+
+        .bg-green {
+            background-color: #2ecc71;
+        }
+
+        .bg-red {
+            background-color: #e74c3c;
+        }
+
+        .bg-blue {
+            background-color: #00529c;
+        }
+
+        .bg-orange {
+            background-color: #f39c12;
+        }
 
         .swal-cancel-btn {
-            background: #c0392b; color: white; border: none;
-            padding: 11px 0; border-radius: 8px; font-weight: bold;
-            cursor: pointer; font-size: 14px; width: 100%; margin-top: 4px;
+            background: #c0392b;
+            color: white;
+            border: none;
+            padding: 11px 0;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+            width: 100%;
+            margin-top: 4px;
             transition: background 0.2s;
         }
-        .swal-cancel-btn:hover { background: #a93226; }
+
+        .swal-cancel-btn:hover {
+            background: #a93226;
+        }
 
         /* === STATUS BOX === */
         .sys-status-box {
-            border: 2px solid #ccc; border-radius: 10px; padding: 16px 12px;
-            text-align: center; transition: border-color 0.4s, background 0.4s;
+            border: 2px solid #ccc;
+            border-radius: 10px;
+            padding: 16px 12px;
+            text-align: center;
+            transition: border-color 0.4s, background 0.4s;
             background: #f8f9fa;
         }
-        .sys-status-box.idle    { border-color: #2ecc71; background: #f0fff5; }
-        .sys-status-box.busy    { border-color: #f39c12; background: #fffbf0; }
-        .sys-status-box.error   { border-color: #e74c3c; background: #fff5f5; }
-        .sys-status-icon { font-size: 30px; margin-bottom: 6px; }
-        .sys-status-text { font-weight: 800; font-size: 14px; color: #222; margin-bottom: 3px; }
-        .sys-status-sub  { font-size: 12px; color: #888; min-height: 16px; }
+
+        .sys-status-box.idle {
+            border-color: #2ecc71;
+            background: #f0fff5;
+        }
+
+        .sys-status-box.busy {
+            border-color: #f39c12;
+            background: #fffbf0;
+        }
+
+        .sys-status-box.error {
+            border-color: #e74c3c;
+            background: #fff5f5;
+        }
+
+        .sys-status-icon {
+            font-size: 30px;
+            margin-bottom: 6px;
+        }
+
+        .sys-status-text {
+            font-weight: 800;
+            font-size: 14px;
+            color: #222;
+            margin-bottom: 3px;
+        }
+
+        .sys-status-sub {
+            font-size: 12px;
+            color: #888;
+            min-height: 16px;
+        }
 
         /* === GRID === */
-        .grid-panel { flex: 2; }
-        .grid-panel.busy .slot-card { pointer-events: none; }
-        .grid-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+        .grid-panel {
+            flex: 2;
+        }
 
-        .slot-card { background: #fff; border: 2px solid #eee; border-radius: 12px; padding: 20px 15px; text-align: center; cursor: pointer; transition: 0.3s; }
-        .slot-card:hover:not(.active) { transform: translateY(-5px); box-shadow: 0 8px 15px rgba(0,0,0,0.1); }
-        .slot-card.available { border-top: 5px solid #2ecc71; background-color: #f9fffb; }
-        .slot-card.occupied  { border-top: 5px solid #e74c3c; background-color: #fffaf9; }
-        .slot-card.selected  { border: 3px solid #00529c !important; background-color: #eef5ff; box-shadow: 0 0 0 4px rgba(0,82,156,0.12); }
+        .grid-panel.busy .slot-card {
+            pointer-events: none;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .slot-card {
+            background: #fff;
+            border: 2px solid #eee;
+            border-radius: 12px;
+            padding: 20px 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .slot-card:hover:not(.active) {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .slot-card.available {
+            border-top: 5px solid #2ecc71;
+            background-color: #f9fffb;
+        }
+
+        .slot-card.occupied {
+            border-top: 5px solid #e74c3c;
+            background-color: #fffaf9;
+        }
+
+        .slot-card.selected {
+            border: 3px solid #00529c !important;
+            background-color: #eef5ff;
+            box-shadow: 0 0 0 4px rgba(0, 82, 156, 0.12);
+        }
 
         .slot-card.active {
             border: 3px solid #f39c12 !important;
@@ -81,42 +313,115 @@
             background-color: #fffdf0 !important;
             animation: pulse-slot 1.2s ease-in-out infinite;
         }
+
         @keyframes pulse-slot {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(243,156,18,0.5); }
-            50%       { box-shadow: 0 0 0 10px rgba(243,156,18,0); }
+
+            0%,
+            100% {
+                box-shadow: 0 0 0 0 rgba(243, 156, 18, 0.5);
+            }
+
+            50% {
+                box-shadow: 0 0 0 10px rgba(243, 156, 18, 0);
+            }
         }
 
-        .slot-number { font-size: 18px; font-weight: bold; color: #333; margin-bottom: 8px; }
-        .available .status-text { color: #2ecc71; font-weight: bold; font-size: 13px; }
-        .occupied  .status-text { color: #e74c3c; font-size: 12px; font-family: monospace; }
-        .active    .status-text { color: #f39c12; font-weight: bold; font-size: 12px; }
+        .slot-number {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .available .status-text {
+            color: #2ecc71;
+            font-weight: bold;
+            font-size: 13px;
+        }
+
+        .occupied .status-text {
+            color: #e74c3c;
+            font-size: 12px;
+            font-family: monospace;
+        }
+
+        .active .status-text {
+            color: #f39c12;
+            font-weight: bold;
+            font-size: 12px;
+        }
 
         /* === RESPONSIVE === */
         @media (max-width: 850px) {
-            .main-content { flex-direction: column; gap: 20px; }
-            .status-bar { justify-content: center; font-size: 13px; }
-            .grid-panel { width: 100%; }
+            .main-content {
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            .status-bar {
+                justify-content: center;
+                font-size: 13px;
+            }
+
+            .grid-panel {
+                width: 100%;
+            }
         }
+
         @media (max-width: 600px) {
-            body { padding: 10px; }
-            header { padding: 10px 14px; border-radius: 12px 12px 0 0; }
-            .logo img { height: 32px; }
-            .btn-header { padding: 7px 12px; font-size: 12px; }
-            .main-content { padding: 16px; gap: 16px; }
-            .control-panel { padding: 18px; }
-            .slot-card { padding: 14px 8px; }
-            .slot-number { font-size: 15px; }
+            body {
+                padding: 10px;
+            }
+
+            header {
+                padding: 10px 14px;
+                border-radius: 12px 12px 0 0;
+            }
+
+            .logo img {
+                height: 32px;
+            }
+
+            .btn-header {
+                padding: 7px 12px;
+                font-size: 12px;
+            }
+
+            .main-content {
+                padding: 16px;
+                gap: 16px;
+            }
+
+            .control-panel {
+                padding: 18px;
+            }
+
+            .slot-card {
+                padding: 14px 8px;
+            }
+
+            .slot-number {
+                font-size: 15px;
+            }
         }
+
         @media (max-width: 420px) {
-            .grid-container { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-            .status-bar { padding: 10px 14px; }
+            .grid-container {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+
+            .status-bar {
+                padding: 10px 14px;
+            }
         }
     </style>
 </head>
+
 <body>
 
     <header>
-        <div class="logo"><a href="index.html"><img src="ute_logo.png" alt="HCMUTE Logo"></a></div>
+        <div class="logo"><a href="index.html"><img src="logo.png" alt="HCMUTE Logo"></a></div>
         <div class="user-info">Hello, <span id="userName">Operator</span></div>
         <div>
             <button class="btn-header back-btn" onclick="location.href='dashboard.html'">← Back</button>
@@ -142,7 +447,7 @@
                 <div class="sys-status-box" id="sysStatusBox">
                     <div class="sys-status-icon" id="sysStatusIcon">🔌</div>
                     <div class="sys-status-text" id="sysStatusText">PLC Disconnected</div>
-                    <div class="sys-status-sub"  id="sysStatusSub"></div>
+                    <div class="sys-status-sub" id="sysStatusSub"></div>
                 </div>
 
                 <div class="input-group">
@@ -151,8 +456,10 @@
                 </div>
 
                 <div class="action-buttons">
-                    <button class="btn bg-blue" id="importBtn" onclick="processAction('IMPORT')" disabled>📥 IMPORT</button>
-                    <button class="btn bg-red"  id="exportBtn" onclick="processAction('EXPORT')" disabled>📤 EXPORT</button>
+                    <button class="btn bg-blue" id="importBtn" onclick="processAction('IMPORT')" disabled>📥
+                        IMPORT</button>
+                    <button class="btn bg-red" id="exportBtn" onclick="processAction('EXPORT')" disabled>📤
+                        EXPORT</button>
                 </div>
             </div>
 
@@ -172,19 +479,19 @@
 
         // ── STATE ──────────────────────────────────────────────────────────────
         let isPlcConnected = true;
-        let isSystemBusy   = false;
-        let activeSlot     = null;
+        let isSystemBusy = false;
+        let activeSlot = null;
         let selectedSlotId = null;
-        let currentAction  = null;
-        let mqttClient     = null;
-        let timeInterval   = null;
+        let currentAction = null;
+        let mqttClient = null;
+        let timeInterval = null;
         // Trạng thái luồng IMPORT/EXPORT
-        let _dialogPhase   = null; // null | 'waiting_rfid' | 'moving' | 'done'
+        let _dialogPhase = null; // null | 'waiting_rfid' | 'moving' | 'done'
         let _cancelRequested = false;
         let isMaintenanceMode = false;
 
         const defaultData = Object.fromEntries(
-            Array.from({length: 9}, (_, i) => [i + 1, { uid: null, status: 'available' }])
+            Array.from({ length: 9 }, (_, i) => [i + 1, { uid: null, status: 'available' }])
         );
         let slotData = JSON.parse(localStorage.getItem('warehouseDataV2')) || defaultData;
 
@@ -231,8 +538,8 @@
             for (let i = 1; i <= 9; i++) {
                 const info = piDb[`slot_${i}`] || { status: 'Available' };
                 slotData[i] = {
-                    uid:    info.status === 'Occupied' ? info.uid       : null,
-                    item:   info.status === 'Occupied' ? (info.item_name || info.uid) : null,
+                    uid: info.status === 'Occupied' ? info.uid : null,
+                    item: info.status === 'Occupied' ? (info.item_name || info.uid) : null,
                     status: info.status === 'Occupied' ? 'occupied' : 'available'
                 };
             }
@@ -242,19 +549,19 @@
 
         // ── STATUS DISPLAY ─────────────────────────────────────────────────────
         const STATE_CFG = {
-            IDLE:         { icon: '✅', text: 'System Ready',         cls: 'idle'  },
-            WAITING_RFID: { icon: '📡', text: 'Waiting for RFID...', cls: 'busy'  },
-            MOVING:       { icon: '🚗', text: 'Moving...',            cls: 'busy'  },
-            ERROR:        { icon: '🔴', text: 'System Error',         cls: 'error' },
-            DISCONNECTED: { icon: '🔌', text: 'PLC Disconnected',     cls: ''      },
-            MAINTENANCE:  { icon: '🛠️', text: 'System Maintenance', cls: 'error' },
+            IDLE: { icon: '✅', text: 'System Ready', cls: 'idle' },
+            WAITING_RFID: { icon: '📡', text: 'Waiting for RFID...', cls: 'busy' },
+            MOVING: { icon: '🚗', text: 'Moving...', cls: 'busy' },
+            ERROR: { icon: '🔴', text: 'System Error', cls: 'error' },
+            DISCONNECTED: { icon: '🔌', text: 'PLC Disconnected', cls: '' },
+            MAINTENANCE: { icon: '🛠️', text: 'System Maintenance', cls: 'error' },
         };
 
         function setStatusDisplay(state, sub) {
             const cfg = STATE_CFG[state] || STATE_CFG.IDLE;
             document.getElementById('sysStatusIcon').textContent = cfg.icon;
             document.getElementById('sysStatusText').textContent = cfg.text;
-            document.getElementById('sysStatusSub').textContent  = sub || '';
+            document.getElementById('sysStatusSub').textContent = sub || '';
             const box = document.getElementById('sysStatusBox');
             box.className = 'sys-status-box ' + cfg.cls;
         }
@@ -262,7 +569,7 @@
         function updateStatusBar() {
             const badge = document.getElementById('statusBadge');
             badge.textContent = isSystemBusy ? 'RUNNING' : 'READY';
-            badge.className   = isSystemBusy ? 'bg-orange' : 'bg-green';
+            badge.className = isSystemBusy ? 'bg-orange' : 'bg-green';
             const tBadge = document.getElementById('targetSlotBadge');
             tBadge.textContent = activeSlot ? `Slot ${activeSlot}` : 'N/A';
             tBadge.style.background = activeSlot ? '#f39c12' : '#555';
@@ -301,8 +608,8 @@
             }
             sessionStorage.removeItem('_imp');
             sessionStorage.removeItem('_exp');
-            isSystemBusy  = false;
-            activeSlot    = null;
+            isSystemBusy = false;
+            activeSlot = null;
             currentAction = null;
             setStatusDisplay('IDLE');
             updateStatusBar();
@@ -333,7 +640,7 @@
                     </style>`,
                 footer: `<button class="swal-cancel-btn" onclick="cancelAction()">✖ Hủy thao tác</button>`,
                 allowOutsideClick: false,
-                allowEscapeKey:    false,
+                allowEscapeKey: false,
                 showConfirmButton: false,
                 didOpen: () => Swal.showLoading()
             });
@@ -352,7 +659,7 @@
                     <small style="color:#aaa;">Dialog sẽ tự đóng khi PLC xác nhận hoàn thành.</small>`,
                 footer: `<button class="swal-cancel-btn" onclick="cancelAction()">✖ Hủy thao tác</button>`,
                 allowOutsideClick: false,
-                allowEscapeKey:    false,
+                allowEscapeKey: false,
                 showConfirmButton: false,
                 didOpen: () => Swal.showLoading()
             });
@@ -367,7 +674,7 @@
                        <small style="color:#aaa;">Dialog sẽ tự đóng khi PLC xác nhận hoàn thành.</small>`,
                 footer: `<button class="swal-cancel-btn" onclick="cancelAction()">✖ Hủy thao tác</button>`,
                 allowOutsideClick: false,
-                allowEscapeKey:    false,
+                allowEscapeKey: false,
                 showConfirmButton: false,
                 didOpen: () => Swal.showLoading()
             });
@@ -383,8 +690,8 @@
                 // Quét thất bại → dừng ngay, báo lỗi
                 _dialogPhase = null;
                 sessionStorage.removeItem('_imp');
-                isSystemBusy  = false;
-                activeSlot    = null;
+                isSystemBusy = false;
+                activeSlot = null;
                 currentAction = null;
                 setStatusDisplay('ERROR', 'RFID scan failed');
                 updateStatusBar();
@@ -407,9 +714,9 @@
         // ── MQTT MESSAGES FROM PI ─────────────────────────────────────────────
         function handleRobotState(data) {
             const state = (data.state || 'IDLE').toUpperCase();
-            const slot  = data.slot && data.slot !== 'N/A' ? parseInt(data.slot) : null;
+            const slot = data.slot && data.slot !== 'N/A' ? parseInt(data.slot) : null;
 
-            activeSlot   = (state !== 'IDLE') ? slot : null;
+            activeSlot = (state !== 'IDLE') ? slot : null;
             isSystemBusy = (state !== 'IDLE');
 
             if (state === 'IDLE') {
@@ -436,13 +743,13 @@
                 return;
             }
             const slot = typeof data === 'object' && data.slot ? `Slot ${data.slot}` : '';
-            const uid  = typeof data === 'object' && data.uid  ? `UID: ${data.uid}`  : '';
-            const msg  = [slot, uid].filter(Boolean).join(' — ') || 'Thao tác thành công!';
+            const uid = typeof data === 'object' && data.uid ? `UID: ${data.uid}` : '';
+            const msg = [slot, uid].filter(Boolean).join(' — ') || 'Thao tác thành công!';
 
-            isSystemBusy  = false;
-            activeSlot    = null;
+            isSystemBusy = false;
+            activeSlot = null;
             currentAction = null;
-            _dialogPhase  = null;
+            _dialogPhase = null;
             setStatusDisplay('IDLE');
             updateStatusBar();
             updateButtons();
@@ -461,7 +768,7 @@
             selectedSlotId = null;
 
             if (action === 'IMPORT' || action === 'EXPORT') {
-                const key   = action === 'IMPORT' ? '_imp' : '_exp';
+                const key = action === 'IMPORT' ? '_imp' : '_exp';
                 const title = action === 'IMPORT' ? '✅ Nhập hàng thành công!' : '✅ Xuất hàng thành công!';
                 sessionStorage.removeItem(key);
                 if (Swal.isVisible()) {
@@ -477,7 +784,7 @@
         // ── PROCESS ACTION (AUTO MODE) ─────────────────────────────────────────
         function processAction(actionType) {
             if (!isPlcConnected) { Swal.fire('Cảnh báo', 'Vui lòng kết nối PLC trước!', 'warning'); return; }
-            if (isSystemBusy)    { Swal.fire('Thông báo', 'Hệ thống đang bận, vui lòng chờ!', 'info'); return; }
+            if (isSystemBusy) { Swal.fire('Thông báo', 'Hệ thống đang bận, vui lòng chờ!', 'info'); return; }
 
             const uid = document.getElementById('uidInput').value.trim();
 
@@ -524,7 +831,7 @@
 
         function _startImport(uid) {
             _cancelRequested = false;
-            isSystemBusy  = true;
+            isSystemBusy = true;
             currentAction = 'IMPORT';
 
             const cmd = { action: 'IMPORT', uid: uid, item: uid };
@@ -546,7 +853,7 @@
             const cmd = { action: 'EXPORT', uid: uid, item: uid };
             if (selectedSlotId) cmd.slot_id = selectedSlotId;
 
-            isSystemBusy  = true;
+            isSystemBusy = true;
             currentAction = 'EXPORT';
             const label = selectedSlotId ? `Slot ${selectedSlotId}` : (uid ? uid : '...');
             setStatusDisplay('MOVING', label);
@@ -588,11 +895,11 @@
             });
 
             mqttClient.on('disconnect', () => { isPlcConnected = false; updatePlcUI(); });
-            mqttClient.on('error',      () => { isPlcConnected = false; updatePlcUI(); });
+            mqttClient.on('error', () => { isPlcConnected = false; updatePlcUI(); });
 
             mqttClient.on('message', (t, m) => {
                 let data;
-                try { data = JSON.parse(m.toString()); } catch(e) { data = m.toString(); }
+                try { data = JSON.parse(m.toString()); } catch (e) { data = m.toString(); }
 
                 if (t === 'warehouse/robot_state') {
                     handleRobotState(data);
@@ -606,8 +913,8 @@
                         }
                     }
                 }
-                if (t === 'warehouse/ack')         handleAck(data);
-                if (t === 'warehouse/slot_data')   syncGridFromPi(data);
+                if (t === 'warehouse/ack') handleAck(data);
+                if (t === 'warehouse/slot_data') syncGridFromPi(data);
                 if (t === 'warehouse/rfid_result') handleRfidResult(data);
                 if (t === 'warehouse/maintenance_mode') {
                     isMaintenanceMode = !!data.active;
@@ -622,10 +929,10 @@
                     const msg = typeof data === 'string' ? data : (data.message || JSON.stringify(data));
                     sessionStorage.removeItem('_imp');
                     sessionStorage.removeItem('_exp');
-                    isSystemBusy  = false;
-                    activeSlot    = null;
+                    isSystemBusy = false;
+                    activeSlot = null;
                     currentAction = null;
-                    _dialogPhase  = null;
+                    _dialogPhase = null;
                     setStatusDisplay('ERROR', msg);
                     updateStatusBar();
                     updateButtons();
@@ -641,7 +948,7 @@
         }
 
         function escapeHtml(str) {
-            return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         }
 
         window.addEventListener('beforeunload', () => { if (mqttClient) mqttClient.end(true); });
@@ -654,7 +961,7 @@
             updatePlcUI();
             // Khôi phục dialog nếu trang reload trong lúc thao tác
             if (sessionStorage.getItem('_imp')) {
-                isSystemBusy  = true;
+                isSystemBusy = true;
                 currentAction = 'IMPORT';
                 setStatusDisplay('MOVING');
                 updateStatusBar();
@@ -662,7 +969,7 @@
                 _dialogPhase = 'moving';
                 showRfidWaitingDialog('...');
             } else if (sessionStorage.getItem('_exp')) {
-                isSystemBusy  = true;
+                isSystemBusy = true;
                 currentAction = 'EXPORT';
                 setStatusDisplay('MOVING');
                 updateStatusBar();
@@ -676,5 +983,5 @@
         };
     </script>
 </body>
-</html>
 
+</html>

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,7 +15,8 @@
             font-family: Arial, sans-serif;
         }
 
-        body, html {
+        body,
+        html {
             height: 100%;
             width: 100%;
         }
@@ -29,7 +31,8 @@
             justify-content: space-between;
             align-items: center;
             padding: 15px 40px;
-            background-color: #e5e5e5; /* Màu xám nhạt cho header */
+            background-color: #e5e5e5;
+            /* Màu xám nhạt cho header */
             border-bottom: 2px solid #ccc;
             position: fixed;
             top: 0;
@@ -53,7 +56,8 @@
         }
 
         .logo img {
-            height: 40px; /* Điều chỉnh chiều cao logo */
+            height: 40px;
+            /* Điều chỉnh chiều cao logo */
             margin-right: 10px;
         }
 
@@ -76,13 +80,15 @@
 
         /* Nút Log in */
         .login-btn {
-            background-color: #c9302c; /* Màu đỏ tương tự trong thiết kế */
+            background-color: #c9302c;
+            /* Màu đỏ tương tự trong thiết kế */
             color: white;
             border: none;
             padding: 10px 30px;
             font-size: 18px;
             font-weight: bold;
-            border-radius: 8px; /* Bo góc */
+            border-radius: 8px;
+            /* Bo góc */
             cursor: pointer;
             text-decoration: none;
             display: inline-block;
@@ -95,10 +101,11 @@
         /* Phần nội dung chính (Hero Section) */
         .hero-section {
             /* Thay thế đường dẫn ảnh bên dưới bằng ảnh thực tế của bạn */
-            background-image: url('kho.jpg'); 
+            background-image: url('kho.jpg');
             background-size: cover;
             background-position: center;
-            height: calc(100vh - 75px); /* Trừ đi chiều cao của header */
+            height: calc(100vh - 75px);
+            /* Trừ đi chiều cao của header */
             display: flex;
             justify-content: center;
             align-items: center;
@@ -122,8 +129,10 @@
             font-size: 64px;
             font-weight: bold;
             text-align: center;
-            z-index: 2; /* Đảm bảo chữ nằm trên lớp overlay */
-            text-shadow: 2px 2px 8px rgba(0,0,0,0.7); /* Tạo bóng đổ cho chữ để dễ đọc hơn */
+            z-index: 2;
+            /* Đảm bảo chữ nằm trên lớp overlay */
+            text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.7);
+            /* Tạo bóng đổ cho chữ để dễ đọc hơn */
             letter-spacing: 2px;
             animation: fadeInUp 1.5s ease-out;
         }
@@ -133,117 +142,214 @@
                 opacity: 0;
                 transform: translateY(50px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
             }
         }
+
         /* --- CSS CHO PHẦN GIỚI THIỆU --- */
 
-.about-section {
-    padding: 80px 40px; /* Tạo khoảng trống phía trên/dưới và hai bên */
-    background-color: #ffffff;
-    display: flex;
-    justify-content: center; /* Căn giữa toàn bộ nội dung */
-}
+        .about-section {
+            padding: 80px 40px;
+            /* Tạo khoảng trống phía trên/dưới và hai bên */
+            background-color: #ffffff;
+            display: flex;
+            justify-content: center;
+            /* Căn giữa toàn bộ nội dung */
+        }
 
-.about-container {
-    display: flex;
-    align-items: center; /* Căn giữa hai cột theo chiều dọc */
-    max-width: 1200px; /* Giới hạn chiều rộng tối đa để web không bị loãng trên màn hình lớn */
-    width: 100%;
-    gap: 60px; /* Khoảng cách giữa cột ảnh và cột chữ */
-}
+        .about-container {
+            display: flex;
+            align-items: center;
+            /* Căn giữa hai cột theo chiều dọc */
+            max-width: 1200px;
+            /* Giới hạn chiều rộng tối đa để web không bị loãng trên màn hình lớn */
+            width: 100%;
+            gap: 60px;
+            /* Khoảng cách giữa cột ảnh và cột chữ */
+        }
 
-/* Cột chứa ảnh */
-.about-image {
-    flex: 1; /* Chiếm 50% không gian container */
-}
+        /* Cột chứa ảnh */
+        .about-image {
+            flex: 1;
+            /* Chiếm 50% không gian container */
+        }
 
-.about-image img {
-    width: 100%;
-    height: auto;
-    object-fit: cover; /* Đảm bảo ảnh không bị méo */
-    display: block; /* Tránh khoảng trắng thừa dưới ảnh */
-}
+        .about-image img {
+            width: 100%;
+            height: auto;
+            object-fit: cover;
+            /* Đảm bảo ảnh không bị méo */
+            display: block;
+            /* Tránh khoảng trắng thừa dưới ảnh */
+        }
 
-/* Cột chứa chữ */
-.about-text {
-    flex: 1; /* Chiếm 50% không gian container */
-    text-align: center; /* Căn giữa văn bản theo thiết kế */
-    display: flex;
-    flex-direction: column;
-    gap: 15px; /* Khoảng cách đều giữa các thẻ heading và p */
-}
+        /* Cột chứa chữ */
+        .about-text {
+            flex: 1;
+            /* Chiếm 50% không gian container */
+            text-align: center;
+            /* Căn giữa văn bản theo thiết kế */
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            /* Khoảng cách đều giữa các thẻ heading và p */
+        }
 
-.about-text h2 {
-    font-size: 72px; /* Kích thước chữ rất lớn cho tiêu đề chính */
-    font-weight: bold;
-    color: #000000;
-}
+        .about-text h2 {
+            font-size: 72px;
+            /* Kích thước chữ rất lớn cho tiêu đề chính */
+            font-weight: bold;
+            color: #000000;
+        }
 
-.about-text h3 {
-    font-size: 36px;
-    font-weight: normal;
-    color: #000000;
-}
+        .about-text h3 {
+            font-size: 36px;
+            font-weight: normal;
+            color: #000000;
+        }
 
-.about-text p {
-    font-size: 24px;
-    color: #333333;
-}
+        .about-text p {
+            font-size: 24px;
+            color: #333333;
+        }
 
-    .scroll-reveal {
-        opacity: 0;
-        transform: translateY(40px);
-        transition: opacity 0.8s ease, transform 0.8s ease;
-    }
+        .scroll-reveal {
+            opacity: 0;
+            transform: translateY(40px);
+            transition: opacity 0.8s ease, transform 0.8s ease;
+        }
 
-    .scroll-reveal.visible {
-        opacity: 1;
-        transform: translateY(0);
-    }
+        .scroll-reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
 
-    /* === RESPONSIVE === */
-    @media (max-width: 900px) {
-        .about-container { flex-direction: column; gap: 30px; }
-        .about-text h2 { font-size: 48px; }
-        .about-text h3 { font-size: 26px; }
-        .about-text p { font-size: 18px; }
-    }
-    @media (max-width: 768px) {
-        body { padding-top: 60px; }
-        header { height: 60px; padding: 10px 18px; }
-        .left-section { gap: 16px; }
-        .logo img { height: 32px; }
-        nav a { font-size: 13px; }
-        .login-btn { padding: 8px 16px; font-size: 14px; }
-        .hero-section { height: calc(100vh - 60px); }
-        .hero-title { font-size: 38px; padding: 0 20px; letter-spacing: 1px; }
-        .about-section { padding: 50px 20px; }
-        .about-text h2 { font-size: 42px; }
-        .about-text h3 { font-size: 22px; }
-        .about-text p { font-size: 16px; }
-    }
-    @media (max-width: 480px) {
-        header { padding: 8px 12px; }
-        .left-section { gap: 10px; }
-        nav a { font-size: 12px; }
-        .login-btn { padding: 7px 14px; font-size: 13px; border-radius: 6px; }
-        .hero-title { font-size: 26px; letter-spacing: 0; }
-        .about-section { padding: 36px 16px; }
-        .about-text h2 { font-size: 34px; }
-        .about-text h3 { font-size: 18px; }
-        .about-text p { font-size: 15px; }
-    }
+        /* === RESPONSIVE === */
+        @media (max-width: 900px) {
+            .about-container {
+                flex-direction: column;
+                gap: 30px;
+            }
+
+            .about-text h2 {
+                font-size: 48px;
+            }
+
+            .about-text h3 {
+                font-size: 26px;
+            }
+
+            .about-text p {
+                font-size: 18px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding-top: 60px;
+            }
+
+            header {
+                height: 60px;
+                padding: 10px 18px;
+            }
+
+            .left-section {
+                gap: 16px;
+            }
+
+            .logo img {
+                height: 32px;
+            }
+
+            nav a {
+                font-size: 13px;
+            }
+
+            .login-btn {
+                padding: 8px 16px;
+                font-size: 14px;
+            }
+
+            .hero-section {
+                height: calc(100vh - 60px);
+            }
+
+            .hero-title {
+                font-size: 38px;
+                padding: 0 20px;
+                letter-spacing: 1px;
+            }
+
+            .about-section {
+                padding: 50px 20px;
+            }
+
+            .about-text h2 {
+                font-size: 42px;
+            }
+
+            .about-text h3 {
+                font-size: 22px;
+            }
+
+            .about-text p {
+                font-size: 16px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            header {
+                padding: 8px 12px;
+            }
+
+            .left-section {
+                gap: 10px;
+            }
+
+            nav a {
+                font-size: 12px;
+            }
+
+            .login-btn {
+                padding: 7px 14px;
+                font-size: 13px;
+                border-radius: 6px;
+            }
+
+            .hero-title {
+                font-size: 26px;
+                letter-spacing: 0;
+            }
+
+            .about-section {
+                padding: 36px 16px;
+            }
+
+            .about-text h2 {
+                font-size: 34px;
+            }
+
+            .about-text h3 {
+                font-size: 18px;
+            }
+
+            .about-text p {
+                font-size: 15px;
+            }
+        }
     </style>
 </head>
+
 <body>
 
     <header>
         <div class="left-section">
             <div class="logo">
-                <a href="#"><img src="ute_logo.png" alt="HCMUTE Logo" style="height: 40px; width: auto;"></a>
+                <a href="#"><img src="logo.png" alt="HCMUTE Logo" style="height: 40px; width: auto;"></a>
             </div>
             <nav>
                 <a href="#">About</a>
@@ -258,18 +364,21 @@
             <h1 class="hero-title">AUTOMATED STORAGE & RETRIEVAL SYSTEM</h1>
         </div>
         <section class="about-section scroll-reveal">
-    <div class="about-container">
-        <div class="about-image">
-            <img src="https://images.unsplash.com/photo-1553413077-190dd305871c?q=80&w=1935&auto=format&fit=crop" alt="Hệ thống kệ lưu kho">
-        </div>
-        
-        <div class="about-text">
-            <h2>AS/RS</h2>
-            <h3>Automated Storage & Retrieval System</h3>
-            <p>Utilizing an X-Y Cartesian Robot integrated with RFID and a PLC S7-1200 to fully automate the warehouse import/export process, minimizing errors and optimizing operational efficiency in industrial environments.</p>
-        </div>
-    </div>
-</section>
+            <div class="about-container">
+                <div class="about-image">
+                    <img src="https://images.unsplash.com/photo-1553413077-190dd305871c?q=80&w=1935&auto=format&fit=crop"
+                        alt="Hệ thống kệ lưu kho">
+                </div>
+
+                <div class="about-text">
+                    <h2>AS/RS</h2>
+                    <h3>Automated Storage & Retrieval System</h3>
+                    <p>Utilizing an X-Y Cartesian Robot integrated with RFID and a PLC S7-1200 to fully automate the
+                        warehouse import/export process, minimizing errors and optimizing operational efficiency in
+                        industrial environments.</p>
+                </div>
+            </div>
+        </section>
     </main>
 
     <script>
@@ -284,4 +393,5 @@
         });
     </script>
 </body>
+
 </html>
