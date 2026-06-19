@@ -1,676 +1,1354 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Warehouse Map - HCMUTE</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
-        body { background-color: #f4f7f6; color: #333; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AS/RS — Warehouse Control</title>
+<meta name="description" content="AS/RS SCADA: giám sát và điều khiển kho hàng tự động S7-1200 qua MQTT IoT">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5.3.4/dist/mqtt.min.js" crossorigin="anonymous"></script>
 
-        /* === HEADER === */
-        header { background: #e5e5e5; padding: 15px 40px; border-bottom: 2px solid #ccc; display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 1100px; border-radius: 16px 16px 0 0; }
-        .logo img { height: 40px; margin-right: 10px; }
-        .user-info { font-weight: bold; }
-        .btn-header { color: white; border: none; padding: 8px 20px; font-size: 14px; border-radius: 4px; cursor: pointer; }
-        .back-btn { background: #556270; margin-right: 10px; }
-        .logout-btn { background: #c9302c; }
-        .back-btn:hover { background: #3f464e; }
-        .logout-btn:hover { background: #ac2925; }
+<style>
+/* ══════════════════════════════════════════════════════════════
+   RESET & TOKENS
+════════════════════════════════════════════════════════════════ */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
-        /* === DASHBOARD === */
-        .dashboard-container { width: 100%; max-width: 1100px; background: #fff; border-radius: 0 0 16px 16px; box-shadow: 0 8px 25px rgba(0,0,0,0.08); overflow: hidden; }
-        .status-bar { display: flex; justify-content: space-between; background: #1a252f; color: white; padding: 15px 30px; font-weight: bold; font-size: 14px; flex-wrap: wrap; gap: 8px; }
-        .status-item span { font-weight: normal; margin-left: 8px; padding: 4px 10px; border-radius: 20px; }
+:root {
+  --bg:        #0d1117;
+  --bg2:       #161b22;
+  --bg3:       #21262d;
+  --border:    rgba(255,255,255,.08);
+  --text:      #e6edf3;
+  --text2:     #8b949e;
+  --text3:     #6e7681;
+  --green:     #3fb950;
+  --green-glow:#3fb95033;
+  --blue:      #58a6ff;
+  --blue-glow: #58a6ff33;
+  --orange:    #f0883e;
+  --orange-glow:#f0883e33;
+  --red:       #f85149;
+  --red-glow:  #f8514933;
+  --yellow:    #e3b341;
+  --cyan:      #39d353;
+  --purple:    #bc8cff;
+  --font:      'Inter', system-ui, sans-serif;
+  --mono:      'JetBrains Mono', monospace;
+  --r:         8px;
+  --r2:        12px;
+  --sh:        0 4px 24px rgba(0,0,0,.4);
+}
 
-        .main-content { display: flex; padding: 30px; gap: 40px; }
+html, body { height: 100%; overflow: hidden; font-family: var(--font); background: var(--bg); color: var(--text); }
 
-        /* === CONTROL PANEL === */
-        .control-panel { flex: 1; background: #fdfdfd; border: 1px solid #eee; border-radius: 12px; padding: 25px; display: flex; flex-direction: column; gap: 15px; }
-        .control-panel h3 { color: #00529c; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-        .instruction { font-size: 13px; color: #666; background: #eef2f5; padding: 12px 15px; border-radius: 8px; border-left: 4px solid #3498db; line-height: 1.6; }
-        .input-group label { font-weight: bold; font-size: 14px; display: block; margin-bottom: 5px; }
-        .input-group input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 6px; outline: none; font-size: 14px; }
+/* ══════════════════════════════════════════════════════════════
+   LAYOUT — 3 columns: sidebar | main | right-panel
+════════════════════════════════════════════════════════════════ */
+.app {
+  display: grid;
+  grid-template-rows: 48px 1fr;
+  grid-template-columns: 230px 1fr 280px;
+  grid-template-areas:
+    "topbar topbar topbar"
+    "sidebar main right";
+  height: 100vh;
+  width: 100vw;
+}
 
-        .btn { padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; color: white; transition: 0.2s; text-align: center; font-size: 14px; }
-        .btn:hover:not(:disabled) { opacity: 0.9; transform: translateY(-2px); }
-        .btn:disabled { background-color: #ddd !important; color: #999 !important; cursor: not-allowed; transform: none !important; }
-        .action-buttons { display: flex; gap: 15px; }
-        .action-buttons .btn { flex: 1; padding: 14px; font-size: 15px; }
+/* ── TOPBAR ─────────────────────────────────────────────────── */
+.topbar {
+  grid-area: topbar;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+  z-index: 200;
+  flex-shrink: 0;
+}
 
-        .bg-green  { background-color: #2ecc71; }
-        .bg-red    { background-color: #e74c3c; }
-        .bg-blue   { background-color: #00529c; }
-        .bg-orange { background-color: #f39c12; }
+.tb-logo {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--blue);
+  letter-spacing: -.3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.tb-logo svg { width: 20px; height: 20px; flex-shrink: 0; }
 
-        .swal-cancel-btn {
-            background: #c0392b; color: white; border: none;
-            padding: 11px 0; border-radius: 8px; font-weight: bold;
-            cursor: pointer; font-size: 14px; width: 100%; margin-top: 4px;
-            transition: background 0.2s;
-        }
-        .swal-cancel-btn:hover { background: #a93226; }
+.tb-sep { width: 1px; height: 24px; background: var(--border); margin: 0 4px; }
 
-        /* === STATUS BOX === */
-        .sys-status-box {
-            border: 2px solid #ccc; border-radius: 10px; padding: 16px 12px;
-            text-align: center; transition: border-color 0.4s, background 0.4s;
-            background: #f8f9fa;
-        }
-        .sys-status-box.idle    { border-color: #2ecc71; background: #f0fff5; }
-        .sys-status-box.busy    { border-color: #f39c12; background: #fffbf0; }
-        .sys-status-box.error   { border-color: #e74c3c; background: #fff5f5; }
-        .sys-status-icon { font-size: 30px; margin-bottom: 6px; }
-        .sys-status-text { font-weight: 800; font-size: 14px; color: #222; margin-bottom: 3px; }
-        .sys-status-sub  { font-size: 12px; color: #888; min-height: 16px; }
+.tb-tag {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+.tb-tag.green  { background: var(--green-glow);  color: var(--green); }
+.tb-tag.orange { background: var(--orange-glow); color: var(--orange); }
+.tb-tag.red    { background: var(--red-glow);    color: var(--red); }
+.tb-tag.blue   { background: var(--blue-glow);   color: var(--blue); }
 
-        /* === GRID === */
-        .grid-panel { flex: 2; }
-        .grid-panel.busy .slot-card { pointer-events: none; }
-        .grid-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+#maintenanceBannerTop {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(90deg, #f0883e22, #e3b34122);
+  border: 1px solid #f0883e55;
+  border-radius: 6px;
+  padding: 4px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--orange);
+  animation: pulse-banner 2s ease-in-out infinite;
+}
+#maintenanceBannerTop.active { display: flex; }
+@keyframes pulse-banner {
+  0%, 100% { border-color: #f0883e55; }
+  50%       { border-color: #f0883ecc; }
+}
+.tb-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--orange); animation: blink 1s ease-in-out infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
 
-        .slot-card { background: #fff; border: 2px solid #eee; border-radius: 12px; padding: 20px 15px; text-align: center; cursor: pointer; transition: 0.3s; }
-        .slot-card:hover:not(.active) { transform: translateY(-5px); box-shadow: 0 8px 15px rgba(0,0,0,0.1); }
-        .slot-card.available { border-top: 5px solid #2ecc71; background-color: #f9fffb; }
-        .slot-card.occupied  { border-top: 5px solid #e74c3c; background-color: #fffaf9; }
-        .slot-card.selected  { border: 3px solid #00529c !important; background-color: #eef5ff; box-shadow: 0 0 0 4px rgba(0,82,156,0.12); }
+.tb-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.tb-clock {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text2);
+}
+.tb-btn {
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text2);
+  cursor: pointer;
+  transition: all .15s;
+}
+.tb-btn:hover { border-color: var(--blue); color: var(--blue); }
+.tb-btn.danger:hover { border-color: var(--red); color: var(--red); }
+.tb-user {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text2);
+}
+.tb-avatar {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #58a6ff, #bc8cff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+}
 
-        .slot-card.active {
-            border: 3px solid #f39c12 !important;
-            border-top: 5px solid #f39c12 !important;
-            background-color: #fffdf0 !important;
-            animation: pulse-slot 1.2s ease-in-out infinite;
-        }
-        @keyframes pulse-slot {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(243,156,18,0.5); }
-            50%       { box-shadow: 0 0 0 10px rgba(243,156,18,0); }
-        }
+/* ── SIDEBAR ────────────────────────────────────────────────── */
+.sidebar {
+  grid-area: sidebar;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 4px; }
 
-        .slot-number { font-size: 18px; font-weight: bold; color: #333; margin-bottom: 8px; }
-        .available .status-text { color: #2ecc71; font-weight: bold; font-size: 13px; }
-        .occupied  .status-text { color: #e74c3c; font-size: 12px; font-family: monospace; }
-        .active    .status-text { color: #f39c12; font-weight: bold; font-size: 12px; }
+.sb-section {
+  padding: 12px 12px 8px;
+}
+.sb-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text3);
+  padding: 0 4px;
+  margin-bottom: 6px;
+}
 
-        /* === MAINTENANCE LOCK MODAL === */
-        #maintenanceLockModal {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.75);
-            backdrop-filter: blur(6px);
-            z-index: 9999;
-            justify-content: center;
-            align-items: center;
-            animation: fadeInModal 0.3s ease;
-        }
-        #maintenanceLockModal.active { display: flex; }
-        @keyframes fadeInModal {
-            from { opacity: 0; transform: scale(0.95); }
-            to   { opacity: 1; transform: scale(1); }
-        }
-        .lock-modal-box {
-            background: #1a252f;
-            border: 3px solid #f39c12;
-            border-radius: 20px;
-            padding: 50px 60px;
-            text-align: center;
-            max-width: 520px;
-            box-shadow: 0 0 60px rgba(243,156,18,0.4), 0 20px 60px rgba(0,0,0,0.5);
-            animation: lockPulse 2.5s ease-in-out infinite;
-        }
-        @keyframes lockPulse {
-            0%, 100% { box-shadow: 0 0 40px rgba(243,156,18,0.3), 0 20px 60px rgba(0,0,0,0.5); }
-            50%       { box-shadow: 0 0 80px rgba(243,156,18,0.6), 0 20px 60px rgba(0,0,0,0.5); }
-        }
-        .lock-icon { font-size: 72px; margin-bottom: 20px; animation: lockSpin 4s linear infinite; }
-        @keyframes lockSpin {
-            0%, 80%, 100% { transform: rotate(0deg); }
-            10%            { transform: rotate(-15deg); }
-            20%            { transform: rotate(15deg); }
-            30%            { transform: rotate(0deg); }
-        }
-        .lock-title { font-size: 26px; font-weight: 800; color: #f39c12; margin-bottom: 16px; letter-spacing: 1px; }
-        .lock-message { font-size: 16px; color: #ccc; line-height: 1.8; margin-bottom: 24px; }
-        .lock-badge {
-            display: inline-flex; align-items: center; gap: 8px;
-            background: rgba(243,156,18,0.15); border: 1px solid #f39c12;
-            border-radius: 30px; padding: 8px 20px;
-            color: #f39c12; font-size: 13px; font-weight: 700;
-        }
-        .lock-badge-dot {
-            width: 8px; height: 8px; border-radius: 50%;
-            background: #f39c12;
-            animation: blink 1s ease-in-out infinite;
-        }
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
-        .lock-time { color: #888; font-size: 12px; margin-top: 16px; }
+/* Status cards */
+.status-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sc-led {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: all .3s;
+}
+.sc-led.ok    { background: var(--green); box-shadow: 0 0 8px var(--green); }
+.sc-led.warn  { background: var(--orange); box-shadow: 0 0 8px var(--orange); animation: blink .8s ease-in-out infinite; }
+.sc-led.err   { background: var(--red); box-shadow: 0 0 8px var(--red); }
+.sc-led.off   { background: var(--text3); }
+.sc-text      { font-size: 12px; font-weight: 600; color: var(--text); flex: 1; }
+.sc-sub       { font-size: 10px; color: var(--text3); }
 
-        /* === MAINTENANCE BANNER (top of page) === */
-        #maintenanceBanner {
-            display: none;
-            width: 100%;
-            max-width: 1100px;
-            background: linear-gradient(90deg, #f39c12, #e67e22);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 8px;
-            margin-bottom: 12px;
-            font-weight: 700;
-            font-size: 14px;
-            align-items: center;
-            gap: 10px;
-        }
-        #maintenanceBanner.active { display: flex; }
+/* Control buttons */
+.ctrl-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--bg3);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s;
+  text-align: left;
+}
+.ctrl-btn:hover:not(:disabled)  { border-color: var(--blue); color: var(--blue); background: var(--blue-glow); }
+.ctrl-btn.green:hover:not(:disabled) { border-color: var(--green); color: var(--green); background: var(--green-glow); }
+.ctrl-btn.red:hover:not(:disabled)   { border-color: var(--red);   color: var(--red);   background: var(--red-glow); }
+.ctrl-btn.orange:hover:not(:disabled){ border-color: var(--orange); color: var(--orange); background: var(--orange-glow); }
+.ctrl-btn:disabled { opacity: .4; cursor: not-allowed; }
+.ctrl-btn .icon { font-size: 15px; }
 
-        /* === LOCKED OVERLAY on dashboard container === */
-        .dashboard-container.maintenance-locked {
-            pointer-events: none;
-            filter: grayscale(0.5) opacity(0.7);
-            position: relative;
-        }
+.ctrl-input {
+  width: 100%;
+  padding: 9px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  color: var(--text);
+  font-size: 13px;
+  font-family: var(--font);
+  margin-bottom: 8px;
+  transition: border-color .15s;
+}
+.ctrl-input:focus { outline: none; border-color: var(--blue); }
+.ctrl-input::placeholder { color: var(--text3); }
 
-        /* === RESPONSIVE === */
-        @media (max-width: 850px) {
-            .main-content { flex-direction: column; gap: 20px; }
-            .status-bar { justify-content: center; font-size: 13px; }
-            .grid-panel { width: 100%; }
-        }
-        @media (max-width: 600px) {
-            body { padding: 10px; }
-            header { padding: 10px 14px; border-radius: 12px 12px 0 0; }
-            .logo img { height: 32px; }
-            .btn-header { padding: 7px 12px; font-size: 12px; }
-            .main-content { padding: 16px; gap: 16px; }
-            .control-panel { padding: 18px; }
-            .slot-card { padding: 14px 8px; }
-            .slot-number { font-size: 15px; }
-        }
-        @media (max-width: 420px) {
-            .grid-container { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-            .status-bar { padding: 10px 14px; }
-        }
-    </style>
+/* Slot map */
+.slot-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  padding: 4px;
+}
+.slot-cell {
+  aspect-ratio: 1;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all .2s;
+  font-size: 10px;
+  font-weight: 600;
+  gap: 2px;
+  position: relative;
+  overflow: hidden;
+}
+.slot-cell:hover { border-color: var(--blue); transform: scale(1.04); }
+.slot-cell.available { border-color: #3fb95055; }
+.slot-cell.available .slot-dot { background: var(--green); }
+.slot-cell.occupied  { border-color: #f8514955; background: #f8514911; }
+.slot-cell.occupied  .slot-dot { background: var(--red); }
+.slot-cell.selected  { border-color: var(--blue) !important; background: var(--blue-glow) !important; }
+.slot-cell.active    { border-color: var(--orange) !important; background: var(--orange-glow) !important; animation: pulse-slot .9s ease-in-out infinite; }
+@keyframes pulse-slot { 0%,100%{box-shadow:0 0 0 0 #f0883e44} 50%{box-shadow:0 0 0 6px transparent} }
+.slot-num  { font-size: 11px; font-weight: 700; color: var(--text); }
+.slot-dot  { width: 6px; height: 6px; border-radius: 50%; }
+.slot-item { font-size: 8px; color: var(--text3); max-width: 52px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── MAIN ───────────────────────────────────────────────────── */
+.main {
+  grid-area: main;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--bg);
+}
+.main::-webkit-scrollbar { width: 6px; }
+.main::-webkit-scrollbar-track { background: transparent; }
+.main::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 6px; }
+
+/* Cards */
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r2);
+  overflow: hidden;
+}
+.card-head {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.card-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  color: var(--text2);
+}
+.card-body { padding: 14px 16px; }
+
+/* Stat row */
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.stat-box {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 12px 14px;
+  position: relative;
+  overflow: hidden;
+}
+.stat-box::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+}
+.stat-box.green::before  { background: var(--green); }
+.stat-box.blue::before   { background: var(--blue); }
+.stat-box.orange::before { background: var(--orange); }
+.stat-box.red::before    { background: var(--red); }
+.stat-label { font-size: 10px; color: var(--text3); font-weight: 600; letter-spacing: .5px; text-transform: uppercase; }
+.stat-val   { font-size: 22px; font-weight: 800; margin-top: 4px; line-height: 1; }
+.stat-box.green .stat-val  { color: var(--green); }
+.stat-box.blue .stat-val   { color: var(--blue); }
+.stat-box.orange .stat-val { color: var(--orange); }
+.stat-box.red .stat-val    { color: var(--red); }
+.stat-sub   { font-size: 10px; color: var(--text3); margin-top: 4px; }
+
+/* Charts */
+.chart-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.chart-wrap {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r2);
+  overflow: hidden;
+}
+.chart-wrap canvas { display: block; }
+
+/* Event log table */
+.log-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.log-table th {
+  text-align: left;
+  padding: 6px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  color: var(--text3);
+  border-bottom: 1px solid var(--border);
+}
+.log-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.log-table tr:last-child td { border-bottom: none; }
+.log-table tr:hover td { background: var(--bg3); }
+.badge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .3px;
+}
+.badge.import { background: #3fb95033; color: var(--green); }
+.badge.export { background: #58a6ff33; color: var(--blue); }
+.badge.error  { background: #f8514933; color: var(--red); }
+
+/* ── RIGHT PANEL ────────────────────────────────────────────── */
+.right-panel {
+  grid-area: right;
+  background: var(--bg2);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.rp-head {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  color: var(--text3);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.rp-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 10px;
+}
+.rp-scroll::-webkit-scrollbar { width: 4px; }
+.rp-scroll::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 4px; }
+
+/* PLC command log */
+.plc-entry {
+  display: flex;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  margin-bottom: 4px;
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1.5;
+  border: 1px solid transparent;
+  transition: background .15s;
+}
+.plc-entry:hover { background: var(--bg3); }
+.plc-entry.send  { border-color: #58a6ff22; }
+.plc-entry.recv  { border-color: #3fb95022; }
+.plc-entry.err   { border-color: #f8514922; }
+.plc-arrow { font-size: 14px; flex-shrink: 0; line-height: 1.4; }
+.plc-arrow.send { color: var(--blue); }
+.plc-arrow.recv { color: var(--green); }
+.plc-arrow.err  { color: var(--red); }
+.plc-body { flex: 1; min-width: 0; }
+.plc-ts   { color: var(--text3); font-size: 9px; }
+.plc-desc { color: var(--text); word-break: break-all; }
+.plc-payload { color: var(--text3); font-size: 9px; word-break: break-all; }
+
+.rp-btn {
+  margin: 8px 10px;
+  padding: 7px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--bg3);
+  color: var(--text2);
+  cursor: pointer;
+  width: calc(100% - 20px);
+  transition: all .15s;
+}
+.rp-btn:hover { border-color: var(--blue); color: var(--blue); }
+
+/* ══════════════════════════════════════════════════════════════
+   MAINTENANCE OVERLAY
+════════════════════════════════════════════════════════════════ */
+#maintOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.8);
+  backdrop-filter: blur(10px);
+  z-index: 9000;
+  align-items: center;
+  justify-content: center;
+  animation: fadeOverlay .3s ease;
+}
+#maintOverlay.active { display: flex; }
+@keyframes fadeOverlay { from{opacity:0;transform:scale(.96)} to{opacity:1;transform:scale(1)} }
+
+.maint-box {
+  background: var(--bg2);
+  border: 2px solid var(--orange);
+  border-radius: 20px;
+  padding: 48px 56px;
+  text-align: center;
+  max-width: 480px;
+  box-shadow: 0 0 80px var(--orange-glow), var(--sh);
+  animation: maint-glow 2.5s ease-in-out infinite;
+}
+@keyframes maint-glow {
+  0%,100% { box-shadow: 0 0 40px var(--orange-glow), var(--sh); }
+  50%     { box-shadow: 0 0 100px #f0883e55, var(--sh); }
+}
+.maint-icon { font-size: 64px; margin-bottom: 16px; animation: maint-rotate 4s ease-in-out infinite; }
+@keyframes maint-rotate { 0%,80%,100%{transform:rotate(0)} 10%{transform:rotate(-12deg)} 20%{transform:rotate(12deg)} 30%{transform:rotate(0)} }
+.maint-title { font-size: 24px; font-weight: 800; color: var(--orange); margin-bottom: 12px; letter-spacing: .5px; }
+.maint-msg   { font-size: 14px; color: var(--text2); line-height: 1.8; margin-bottom: 20px; }
+.maint-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--orange-glow);
+  border: 1px solid var(--orange);
+  border-radius: 30px;
+  padding: 7px 18px;
+  color: var(--orange);
+  font-size: 12px;
+  font-weight: 700;
+}
+.maint-ts { color: var(--text3); font-size: 11px; margin-top: 14px; }
+
+/* ══════════════════════════════════════════════════════════════
+   ROBOT STATUS DISPLAY
+════════════════════════════════════════════════════════════════ */
+.robot-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 12px 14px;
+}
+.rs-icon { font-size: 28px; }
+.rs-label { font-size: 14px; font-weight: 700; color: var(--text); }
+.rs-sub   { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+/* Scrollbar track fix */
+.main       { scrollbar-gutter: stable; }
+.right-panel { scrollbar-gutter: stable; }
+</style>
 </head>
 <body>
 
-    <!-- MAINTENANCE LOCK BANNER -->
-    <div id="maintenanceBanner">
-        <span>🔒</span>
-        <span>HỆ THỐNG ĐANG BẢO TRÌ — Tất cả lệnh bị khóa. Vui lòng chờ đội bảo trì hoàn thành.</span>
-        <span id="bannerTime" style="margin-left:auto; opacity:0.8; font-weight:400;"></span>
+<!-- ══ MAINTENANCE OVERLAY ═════════════════════════════════════════ -->
+<div id="maintOverlay">
+  <div class="maint-box">
+    <div class="maint-icon">🔒</div>
+    <div class="maint-title">HỆ THỐNG ĐANG BẢO TRÌ</div>
+    <div class="maint-msg">
+      Hệ thống đang ở <b>Manual / Maintenance Mode</b>.<br>
+      Website người dùng bị khóa. Vui lòng chờ đội bảo trì hoàn thành.
+    </div>
+    <div class="maint-badge">
+      <div class="tb-dot"></div>
+      MAINTENANCE MODE ACTIVE
+    </div>
+    <div class="maint-ts" id="maintStartTime">–</div>
+  </div>
+</div>
+
+<!-- ══ APP SHELL ═══════════════════════════════════════════════════ -->
+<div class="app">
+
+  <!-- ── TOPBAR ──────────────────────────────────────────────────── -->
+  <header class="topbar" id="topbar">
+    <div class="tb-logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+        <line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/>
+      </svg>
+      AS/RS CONSOLE
+    </div>
+    <div class="tb-sep"></div>
+    <span class="tb-tag" id="tagPlc">PLC OFFLINE</span>
+    <span class="tb-tag" id="tagMode">AUTO</span>
+    <span class="tb-tag" id="tagStatus">IDLE</span>
+
+    <!-- Maintenance banner in topbar -->
+    <div id="maintenanceBannerTop">
+      <div class="tb-dot"></div>
+      <span>BẢO TRÌ — Maintenance mode đang hoạt động. Website người dùng đã bị khóa.</span>
     </div>
 
-    <header>
-        <div class="logo"><a href="index.html"><img src="ute_logo.png" alt="HCMUTE Logo"></a></div>
-        <div class="user-info">Xin chào, Double2H</div>
+    <div class="tb-right">
+      <div class="tb-clock" id="clock">--:--:--</div>
+      <button class="tb-btn" onclick="location.href='dashboard.html'">← Dashboard</button>
+      <button class="tb-btn danger" onclick="doLogout()">Đăng xuất</button>
+      <div class="tb-user">
+        <div class="tb-avatar" id="userAvatar">OP</div>
+        <span id="userName">Operator</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── SIDEBAR ─────────────────────────────────────────────────── -->
+  <aside class="sidebar">
+
+    <!-- OPERATING MODE -->
+    <div class="sb-section">
+      <div class="sb-section-label">Chế độ điều khiển</div>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <button class="ctrl-btn green" id="btnAuto" onclick="setMode('AUTO')" style="flex:1;justify-content:center">
+          <span class="icon">🤖</span> AUTO
+        </button>
+        <button class="ctrl-btn orange" id="btnManual" onclick="setMode('MANUAL')" style="flex:1;justify-content:center">
+          <span class="icon">🔧</span> MANUAL
+        </button>
+      </div>
+    </div>
+
+    <!-- SYSTEM STATUS -->
+    <div class="sb-section" style="border-top:1px solid var(--border);padding-top:12px">
+      <div class="sb-section-label">Trạng thái thiết bị</div>
+      <div class="status-card">
+        <div class="sc-led err" id="plcLed"></div>
         <div>
-            <button class="btn-header back-btn" onclick="location.href='dashboard.html'">← Quay lại</button>
-            <button class="btn-header logout-btn" onclick="logout()">Đăng xuất</button>
+          <div class="sc-text" id="plcStatusTxt">PLC S7-1200</div>
+          <div class="sc-sub" id="plcSubTxt">DISCONNECTED</div>
         </div>
-    </header>
-
-    <div class="dashboard-container" id="dashboardContainer">
-        <div class="status-bar">
-            <div class="status-item">PLC S7-1200: <span id="plcBadge" class="bg-red">DISCONNECTED</span></div>
-            <div class="status-item">STATUS: <span id="statusBadge" class="bg-green">IDLE</span></div>
-            <div class="status-item">TARGET SLOT: <span id="targetSlotBadge" style="background:#555;">N/A</span></div>
-            <div class="status-item">Last Update: <span id="lastUpdate" style="background:#555;">--:--:--</span></div>
+      </div>
+      <div class="status-card">
+        <div class="sc-led off" id="rfidLed"></div>
+        <div>
+          <div class="sc-text">RFID Reader</div>
+          <div class="sc-sub" id="rfidSubTxt">–</div>
         </div>
-
-        <div class="main-content">
-
-            <!-- CONTROL PANEL -->
-            <div class="control-panel">
-                <h3>🤖 Điều Khiển Tự Động</h3>
-
-                <!-- HỘP TRẠNG THÁI HỆ THỐNG -->
-                <div class="sys-status-box" id="sysStatusBox">
-                    <div class="sys-status-icon" id="sysStatusIcon">🔌</div>
-                    <div class="sys-status-text" id="sysStatusText">Chưa kết nối PLC</div>
-                    <div class="sys-status-sub"  id="sysStatusSub"></div>
-                </div>
-
-                <div class="input-group">
-                    <label>Thông tin sản phẩm (nếu có):</label>
-                    <input type="text" id="uidInput" placeholder="Nhập thông tin sản phẩm hoặc để trống...">
-                </div>
-
-                <div class="action-buttons">
-                    <button class="btn bg-blue" id="importBtn" onclick="processAction('IMPORT')" disabled>📥 IMPORT</button>
-                    <button class="btn bg-red"  id="exportBtn" onclick="processAction('EXPORT')" disabled>📤 EXPORT</button>
-                </div>
-            </div>
-
-            <!-- WAREHOUSE GRID -->
-            <div class="grid-panel" id="gridPanel">
-                <div class="grid-container" id="gridContainer"></div>
-            </div>
-
+      </div>
+      <div class="status-card">
+        <div class="sc-led ok" id="mqttLed"></div>
+        <div>
+          <div class="sc-text">MQTT Cloud</div>
+          <div class="sc-sub" id="mqttSubTxt">Đang kết nối...</div>
         </div>
+      </div>
     </div>
 
-    <!-- MAINTENANCE LOCK MODAL -->
-    <div id="maintenanceLockModal">
-        <div class="lock-modal-box">
-            <div class="lock-icon">🔒</div>
-            <div class="lock-title">HỆ THỐNG ĐANG BẢO TRÌ</div>
-            <div class="lock-message">
-                Hệ thống đang ở chế độ bảo trì.<br>
-                Vui lòng chờ cho đến khi chế độ bảo trì<br>được tắt để tiếp tục sử dụng.
-            </div>
-            <div class="lock-badge">
-                <div class="lock-badge-dot"></div>
-                MAINTENANCE MODE ACTIVE
-            </div>
-            <div class="lock-time" id="lockStartTime"></div>
+    <!-- ROBOT STATUS -->
+    <div class="sb-section" style="border-top:1px solid var(--border);padding-top:12px">
+      <div class="sb-section-label">Trạng thái robot</div>
+      <div class="robot-status">
+        <div class="rs-icon" id="rsIcon">🔌</div>
+        <div>
+          <div class="rs-label" id="rsLabel">Chưa kết nối</div>
+          <div class="rs-sub" id="rsSub">–</div>
         </div>
+      </div>
     </div>
 
-    <script src="config.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mqtt@5.3.4/dist/mqtt.min.js" crossorigin="anonymous"></script>
-    <script>
-        authGuard();
+    <!-- CONTROL -->
+    <div class="sb-section" style="border-top:1px solid var(--border);padding-top:12px">
+      <div class="sb-section-label">Điều khiển</div>
+      <input type="text" class="ctrl-input" id="uidInput" placeholder="Tên hàng / UID...">
+      <button class="ctrl-btn green" id="importBtn" onclick="processAction('IMPORT')" disabled>
+        <span class="icon">📥</span> NHẬP KHO (IMPORT)
+      </button>
+      <button class="ctrl-btn" id="exportBtn" onclick="processAction('EXPORT')" disabled style="--c:var(--blue)">
+        <span class="icon">📤</span> XUẤT KHO (EXPORT)
+      </button>
+      <button class="ctrl-btn red" id="resetBtn" onclick="doEmergencyReset()">
+        <span class="icon">⛔</span> EMERGENCY RESET
+      </button>
+    </div>
 
-        // ── STATE ──────────────────────────────────────────────────────────────
-        let isPlcConnected     = true;
-        let isSystemBusy       = false;
-        let isMaintenanceMode  = false;
-        let activeSlot         = null;
-        let selectedSlotId     = null;
-        let currentAction      = null;
-        let mqttClient         = null;
-        let timeInterval       = null;
+    <!-- SLOT MAP -->
+    <div class="sb-section" style="border-top:1px solid var(--border);padding-top:12px;flex:1">
+      <div class="sb-section-label">Bản đồ kho (9 slot)</div>
+      <div class="slot-grid" id="slotGrid"></div>
+    </div>
 
-        const defaultData = Object.fromEntries(
-            Array.from({length: 9}, (_, i) => [i + 1, { uid: null, status: 'available' }])
-        );
-        let slotData = JSON.parse(localStorage.getItem('warehouseDataV2')) || defaultData;
+  </aside>
 
-        // ── MAINTENANCE MODE ────────────────────────────────────────────────────
-        function setMaintenanceMode(active, timestamp) {
-            isMaintenanceMode = active;
+  <!-- ── MAIN CONTENT ─────────────────────────────────────────────── -->
+  <main class="main">
 
-            const modal   = document.getElementById('maintenanceLockModal');
-            const banner  = document.getElementById('maintenanceBanner');
-            const dash    = document.getElementById('dashboardContainer');
-            const lockTs  = document.getElementById('lockStartTime');
+    <!-- Stat Row -->
+    <div class="stat-row">
+      <div class="stat-box green">
+        <div class="stat-label">Slot trống</div>
+        <div class="stat-val" id="statFree">–</div>
+        <div class="stat-sub">Trong tổng 9</div>
+      </div>
+      <div class="stat-box red">
+        <div class="stat-label">Slot đã dùng</div>
+        <div class="stat-val" id="statUsed">–</div>
+        <div class="stat-sub">Trong tổng 9</div>
+      </div>
+      <div class="stat-box blue">
+        <div class="stat-label">Tổng IMPORT</div>
+        <div class="stat-val" id="statImport">0</div>
+        <div class="stat-sub">Phiên hiện tại</div>
+      </div>
+      <div class="stat-box orange">
+        <div class="stat-label">Tổng EXPORT</div>
+        <div class="stat-val" id="statExport">0</div>
+        <div class="stat-sub">Phiên hiện tại</div>
+      </div>
+    </div>
 
-            if (active) {
-                modal.classList.add('active');
-                banner.classList.add('active');
-                dash.classList.add('maintenance-locked');
-                if (timestamp) lockTs.textContent = 'Bắt đầu: ' + timestamp;
-                // Force-disable all action buttons
-                document.getElementById('importBtn').disabled = true;
-                document.getElementById('exportBtn').disabled = true;
-                // Close any open Swal dialog
-                if (Swal.isVisible()) Swal.close();
-            } else {
-                modal.classList.remove('active');
-                banner.classList.remove('active');
-                dash.classList.remove('maintenance-locked');
-                lockTs.textContent = '';
-                // Restore button states normally
-                updateButtons();
-            }
-        }
+    <!-- Charts Row -->
+    <div class="chart-row">
+      <div class="chart-wrap card">
+        <div class="card-head">
+          <div class="card-title">📊 Hoạt động theo giờ</div>
+          <span class="tb-tag blue" id="chartLiveTag">LIVE</span>
+        </div>
+        <div class="card-body" style="padding:10px 14px">
+          <canvas id="chartHour" height="160"></canvas>
+        </div>
+      </div>
+      <div class="chart-wrap card">
+        <div class="card-head">
+          <div class="card-title">📦 Lưu lượng theo slot</div>
+          <span class="tb-tag green">SLOT MAP</span>
+        </div>
+        <div class="card-body" style="padding:10px 14px">
+          <canvas id="chartSlot" height="160"></canvas>
+        </div>
+      </div>
+    </div>
 
-        // ── GRID ───────────────────────────────────────────────────────────────
-        function initGrid() {
-            const container = document.getElementById('gridContainer');
-            container.innerHTML = '';
-            if (!slotData || !slotData[1]) {
-                slotData = JSON.parse(JSON.stringify(defaultData));
-                localStorage.setItem('warehouseDataV2', JSON.stringify(slotData));
-            }
-            for (let i = 1; i <= 9; i++) {
-                const d = slotData[i];
-                const isAvail  = d.status === 'available';
-                const isActive = (activeSlot === i);
-                let cardClass  = isActive ? 'active' : d.status;
-                let statusText = isActive ? '⚙️ Đang xử lý...' : (isAvail ? 'Trống' : escapeHtml(d.item || d.uid || ''));
-                container.innerHTML += `
-                    <div class="slot-card ${cardClass}" id="slotCard-${i}" onclick="selectSlot(${i})">
-                        <div class="slot-number">Slot ${i}</div>
-                        <div class="status-text">${statusText}</div>
-                    </div>`;
-            }
-            if (selectedSlotId) {
-                const el = document.getElementById(`slotCard-${selectedSlotId}`);
-                if (el && !el.classList.contains('active')) el.classList.add('selected');
-            }
-            document.getElementById('gridPanel').classList.toggle('busy', isSystemBusy || isMaintenanceMode);
-        }
+    <!-- Event Log -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">📋 Lịch sử hoạt động</div>
+        <button class="tb-btn" onclick="clearEventLog()">Xóa log</button>
+      </div>
+      <div style="overflow-x:auto;max-height:220px;overflow-y:auto">
+        <table class="log-table">
+          <thead>
+            <tr>
+              <th>Thời gian</th>
+              <th>Hành động</th>
+              <th>Slot</th>
+              <th>Hàng hóa</th>
+              <th>UID</th>
+            </tr>
+          </thead>
+          <tbody id="eventLogBody">
+            <tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px">Chưa có dữ liệu…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
 
-        function selectSlot(id) {
-            if (isSystemBusy || isMaintenanceMode) return;
-            document.querySelectorAll('.slot-card').forEach(el => el.classList.remove('selected'));
-            const card = document.getElementById(`slotCard-${id}`);
-            if (card) card.classList.add('selected');
-            selectedSlotId = id;
-            const d = slotData[id];
-            document.getElementById('uidInput').value = (d && d.uid) ? d.uid : '';
-        }
+  </main>
 
-        // ── SYNC GRID TỪ PI ───────────────────────────────────────────────────
-        function syncGridFromPi(piDb) {
-            if (!piDb || typeof piDb !== 'object') return;
-            for (let i = 1; i <= 9; i++) {
-                const info = piDb[`slot_${i}`] || { status: 'Available' };
-                slotData[i] = {
-                    uid:    info.status === 'Occupied' ? info.uid       : null,
-                    item:   info.status === 'Occupied' ? (info.item_name || info.uid) : null,
-                    status: info.status === 'Occupied' ? 'occupied' : 'available'
-                };
-            }
-            localStorage.setItem('warehouseDataV2', JSON.stringify(slotData));
-            initGrid();
-        }
+  <!-- ── RIGHT PANEL: PLC COMMAND LOG ────────────────────────────── -->
+  <aside class="right-panel">
+    <div class="rp-head">
+      <span>🔌 PLC Command Log</span>
+      <span style="font-size:10px;color:var(--green)" id="plcLogCount">0 entries</span>
+    </div>
+    <div class="rp-scroll" id="plcLogScroll"></div>
+    <button class="rp-btn" onclick="clearPlcLog()">🗑 Xóa log PLC</button>
+  </aside>
 
-        // ── STATUS DISPLAY ─────────────────────────────────────────────────────
-        const STATE_CFG = {
-            IDLE:          { icon: '🟢', text: 'Hệ thống sẵn sàng',          cls: 'idle'  },
-            WAITING_RFID:  { icon: '📡', text: 'Đang chờ quét thẻ RFID...',  cls: 'busy'  },
-            MOVING:        { icon: '🔄', text: 'Đang di chuyển...',           cls: 'busy'  },
-            HOMING:        { icon: '🏠', text: 'Đang về vị trí gốc...',       cls: 'busy'  },
-            ESTOP:         { icon: '🛑', text: 'KHẨN CẤP DỪNG',              cls: 'error' },
-            ERROR:         { icon: '🔴', text: 'Lỗi hệ thống',               cls: 'error' },
-            DISCONNECTED:  { icon: '🔌', text: 'Chưa kết nối PLC',           cls: ''      },
-        };
+</div><!-- /.app -->
 
-        function setStatusDisplay(state, sub) {
-            const cfg = STATE_CFG[state] || STATE_CFG.IDLE;
-            document.getElementById('sysStatusIcon').textContent = cfg.icon;
-            document.getElementById('sysStatusText').textContent = cfg.text;
-            document.getElementById('sysStatusSub').textContent  = sub || '';
-            const box = document.getElementById('sysStatusBox');
-            box.className = 'sys-status-box ' + cfg.cls;
-        }
+<script src="config.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════════ */
+const defaultDb = Object.fromEntries(
+  Array.from({length:9}, (_,i)=>[i+1, {uid:null, status:'available'}])
+);
+let slotData        = JSON.parse(localStorage.getItem('warehouseDataV2')) || defaultDb;
+let isPlcConnected  = false;
+let isSystemBusy    = false;
+let isMaintenance   = false;
+let activeSlot      = null;
+let selectedSlot    = null;
+let currentAction   = null;
+let mqttClient      = null;
+let sessionImports  = 0;
+let sessionExports  = 0;
+let plcLogEntries   = [];
 
-        function updateStatusBar() {
-            const badge = document.getElementById('statusBadge');
-            badge.textContent  = isSystemBusy ? 'ĐANG CHẠY' : 'SẴN SÀNG';
-            badge.className    = isSystemBusy ? 'bg-orange' : 'bg-green';
-            const tBadge = document.getElementById('targetSlotBadge');
-            tBadge.textContent = activeSlot ? `Slot ${activeSlot}` : 'N/A';
-            tBadge.style.background = activeSlot ? '#f39c12' : '#555';
-        }
+// Chart data
+const HOURS = Array.from({length:12},(_,i)=>`${i+6}h`);
+let hrImport = Array(12).fill(0);
+let hrExport = Array(12).fill(0);
+let slotImp  = Array(9).fill(0);
+let slotExp  = Array(9).fill(0);
 
-        function updateButtons() {
-            if (isMaintenanceMode) {
-                document.getElementById('importBtn').disabled = true;
-                document.getElementById('exportBtn').disabled = true;
-                return;
-            }
-            const off = !isPlcConnected || isSystemBusy;
-            document.getElementById('importBtn').disabled = off;
-            document.getElementById('exportBtn').disabled = off;
-        }
+/* ═══════════════════════════════════════════════════════════════
+   CLOCK
+═══════════════════════════════════════════════════════════════ */
+setInterval(()=>{
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('vi-VN');
+},1000);
 
-        // ── XỬ LÝ MQTT MESSAGES TỪ PI ─────────────────────────────────────────
-        function handleRobotState(data) {
-            const state = (data.state || 'IDLE').toUpperCase();
-            const slot  = data.slot && data.slot !== 'N/A' ? parseInt(data.slot) : null;
+/* ═══════════════════════════════════════════════════════════════
+   MODE
+═══════════════════════════════════════════════════════════════ */
+function setMode(mode) {
+  const isManual = mode === 'MANUAL';
+  isMaintenance  = isManual;
 
-            activeSlot     = (state !== 'IDLE') ? slot : null;
-            isSystemBusy   = (state !== 'IDLE' && state !== 'ESTOP');
+  // Push to MQTT (so Python script picks it up)
+  if (mqttClient && mqttClient.connected) {
+    mqttClient.publish('warehouse/set_maintenance',
+      JSON.stringify({active: isManual}));
+  }
 
-            if (state === 'IDLE') {
-                currentAction = null;
-                const pendingKey = sessionStorage.getItem('_imp') ? '_imp' : sessionStorage.getItem('_exp') ? '_exp' : null;
-                if (pendingKey) {
-                    sessionStorage.removeItem(pendingKey);
-                    if (Swal.isVisible()) {
-                        Swal.hideLoading();
-                        Swal.update({ title: 'Hoàn thành!', html: 'Kiểm tra bản đồ để xác nhận.', footer: '', showConfirmButton: true, confirmButtonText: 'OK' });
-                    }
-                }
-            }
+  updateMaintenanceUI(isManual, new Date().toLocaleTimeString('vi-VN'));
 
-            const sub = slot ? `Slot ${slot}` : '';
-            setStatusDisplay(state, sub);
-            updateStatusBar();
-            updateButtons();
-            initGrid();
-        }
+  document.getElementById('btnAuto').style.borderColor   = isManual ? '' : 'var(--green)';
+  document.getElementById('btnManual').style.borderColor = isManual ? 'var(--orange)' : '';
+  const modeTag = document.getElementById('tagMode');
+  modeTag.textContent = mode;
+  modeTag.className   = 'tb-tag ' + (isManual ? 'orange' : 'green');
 
-        function cancelAction() {
-            const label = currentAction === 'IMPORT' ? 'import' : currentAction === 'EXPORT' ? 'export' : 'thao tác';
-            Swal.fire({
-                title: 'Xác nhận hủy?',
-                text: `Bạn có chắc muốn hủy ${label}? Robot sẽ dừng ngay lập tức.`,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#c0392b',
-                cancelButtonColor: '#555',
-                confirmButtonText: 'Hủy thao tác',
-                cancelButtonText: 'Tiếp tục'
-            }).then(result => {
-                if (!result.isConfirmed) return;
-                if (mqttClient && mqttClient.connected) {
-                    mqttClient.publish('warehouse/command', JSON.stringify({ action: 'EMERGENCY_RESET' }));
-                }
-                sessionStorage.removeItem('_imp');
-                sessionStorage.removeItem('_exp');
-                isSystemBusy  = false;
-                activeSlot    = null;
-                currentAction = null;
-                setStatusDisplay('IDLE');
-                updateStatusBar();
-                updateButtons();
-                initGrid();
-                Swal.fire({ title: 'Đã hủy!', text: 'Lệnh reset đã được gửi.', icon: 'info', timer: 2500, showConfirmButton: false });
-            });
-        }
+  addPlcLog('sys', `MODE → ${mode}`, {maintenance: isManual});
+}
 
-        function handleAck(data) {
-            const action = typeof data === 'object' ? (data.action || '') : '';
-            const slot   = typeof data === 'object' && data.slot ? `Slot ${data.slot}` : '';
-            const item   = typeof data === 'object' && data.item ? data.item : '';
-            const msg    = [slot, item].filter(Boolean).join(' — ') || 'Thao tác thành công!';
+/* ═══════════════════════════════════════════════════════════════
+   MAINTENANCE UI
+═══════════════════════════════════════════════════════════════ */
+function updateMaintenanceUI(active, ts) {
+  isMaintenance = active;
+  const overlay = document.getElementById('maintOverlay');
+  const banner  = document.getElementById('maintenanceBannerTop');
+  const tsEl    = document.getElementById('maintStartTime');
 
-            isSystemBusy  = false;
-            activeSlot    = null;
-            currentAction = null;
-            setStatusDisplay('IDLE');
-            updateStatusBar();
-            updateButtons();
+  if (active) {
+    overlay.classList.add('active');
+    banner.classList.add('active');
+    if (ts) tsEl.textContent = 'Bắt đầu: ' + ts;
+    // show overlay only for NON-maintenance users
+    // (on maintenance site it's the operator, so we show the banner but allow control)
+    // For user-facing site: full block
+    if (Swal.isVisible()) Swal.close();
+  } else {
+    overlay.classList.remove('active');
+    banner.classList.remove('active');
+    tsEl.textContent = '';
+  }
+  updateButtons();
+}
 
-            if (typeof data === 'object' && data.slot) {
-                const sid = parseInt(data.slot);
-                if (action === 'IMPORT') {
-                    slotData[sid] = { uid: data.uid || '', item: item || '', status: 'occupied' };
-                } else if (action === 'EXPORT') {
-                    slotData[sid] = { uid: null, status: 'available' };
-                }
-                localStorage.setItem('warehouseDataV2', JSON.stringify(slotData));
-            }
-            initGrid();
-            document.getElementById('uidInput').value = '';
-            selectedSlotId = null;
+/* ═══════════════════════════════════════════════════════════════
+   SLOT GRID
+═══════════════════════════════════════════════════════════════ */
+function renderSlotGrid() {
+  const grid = document.getElementById('slotGrid');
+  grid.innerHTML = '';
+  let free = 0, used = 0;
+  for (let i=1; i<=9; i++) {
+    const d   = slotData[i] || {status:'available'};
+    const isA = d.status === 'available';
+    const isAct = activeSlot === i;
+    const isSel = selectedSlot === i;
+    if (isA) free++; else used++;
+    const cls = isAct ? 'active' : isSel ? 'selected' : (isA ? 'available' : 'occupied');
+    grid.innerHTML += `
+      <div class="slot-cell ${cls}" id="sc${i}" onclick="selectSlot(${i})" title="Slot ${i}: ${d.item||d.uid||'Trống'}">
+        <div class="slot-num">S${i}</div>
+        <div class="slot-dot"></div>
+        <div class="slot-item">${escapeHtml(d.item||d.uid||'Trống')}</div>
+      </div>`;
+  }
+  document.getElementById('statFree').textContent = free;
+  document.getElementById('statUsed').textContent = used;
+}
 
-            if (action === 'IMPORT' || action === 'EXPORT') {
-                const key   = action === 'IMPORT' ? '_imp' : '_exp';
-                const title = action === 'IMPORT' ? 'Nhập hàng thành công!' : 'Xuất hàng thành công!';
-                sessionStorage.removeItem(key);
-                if (Swal.isVisible()) {
-                    Swal.hideLoading();
-                    Swal.update({ title, html: `<span style="font-size:40px">✅</span><br><b>${msg}</b>`, footer: '', showConfirmButton: false });
-                    setTimeout(() => Swal.close(), 3000);
-                } else {
-                    Swal.fire({ title, text: msg, icon: 'success', timer: 3000, showConfirmButton: false });
-                }
-            }
-        }
+function selectSlot(id) {
+  if (isSystemBusy || isMaintenance) return;
+  selectedSlot = id;
+  const d = slotData[id] || {};
+  document.getElementById('uidInput').value = d.uid || '';
+  renderSlotGrid();
+}
 
-        function showImportDialog() {
-            Swal.fire({
-                title: 'Đang nhập hàng...',
-                html:  'Robot đang vận chuyển.<br><small style="color:#aaa">Hộp thoại tự đóng sau khi PLC xác nhận xong.</small>',
-                footer: '<button class="swal-cancel-btn" onclick="cancelAction()">⛔ Hủy nhập hàng</button>',
-                allowOutsideClick: false,
-                allowEscapeKey:    false,
-                showConfirmButton: false,
-                didOpen: () => Swal.showLoading()
-            });
-        }
+function syncGrid(piDb) {
+  if (!piDb || typeof piDb !== 'object') return;
+  for (let i=1; i<=9; i++) {
+    const info = piDb[`slot_${i}`] || {status:'Available'};
+    slotData[i] = {
+      uid:    info.status==='Occupied' ? info.uid : null,
+      item:   info.status==='Occupied' ? (info.item_name||info.uid) : null,
+      status: info.status==='Occupied' ? 'occupied' : 'available',
+    };
+  }
+  localStorage.setItem('warehouseDataV2', JSON.stringify(slotData));
+  renderSlotGrid();
+}
 
-        function showExportDialog(slotLabel) {
-            Swal.fire({
-                title: 'Đang xuất hàng...',
-                html:  `Robot đang di chuyển đến <b>${slotLabel || '...'}</b>.<br><small style="color:#aaa">Hộp thoại tự đóng sau khi PLC xác nhận xong.</small>`,
-                footer: '<button class="swal-cancel-btn" onclick="cancelAction()">⛔ Hủy xuất hàng</button>',
-                allowOutsideClick: false,
-                allowEscapeKey:    false,
-                showConfirmButton: false,
-                didOpen: () => Swal.showLoading()
-            });
-        }
+/* ═══════════════════════════════════════════════════════════════
+   ROBOT STATE
+═══════════════════════════════════════════════════════════════ */
+const STATE_MAP = {
+  IDLE:         {icon:'🟢', label:'Hệ thống sẵn sàng',        sub:''},
+  WAITING_RFID: {icon:'📡', label:'Đang chờ quét RFID...',    sub:''},
+  MOVING:       {icon:'🔄', label:'Robot đang di chuyển...',  sub:''},
+  HOMING:       {icon:'🏠', label:'Về vị trí gốc...',          sub:''},
+  ESTOP:        {icon:'🛑', label:'KHẨN CẤP DỪNG',            sub:''},
+  ERROR:        {icon:'🔴', label:'Lỗi hệ thống',             sub:''},
+  DISCONNECTED: {icon:'🔌', label:'Chưa kết nối',             sub:''},
+};
+function setRobotState(state, sub) {
+  const cfg = STATE_MAP[state] || STATE_MAP.IDLE;
+  document.getElementById('rsIcon').textContent  = cfg.icon;
+  document.getElementById('rsLabel').textContent = cfg.label;
+  document.getElementById('rsSub').textContent   = sub || cfg.sub;
 
-        // ── PROCESS ACTION (AUTO MODE) ─────────────────────────────────────────
-        function processAction(actionType) {
-            if (isMaintenanceMode) {
-                Swal.fire('Đang bảo trì', 'Hệ thống đang ở chế độ bảo trì. Không thể thực hiện lệnh!', 'warning');
-                return;
-            }
-            if (!isPlcConnected) { Swal.fire('Cảnh báo', 'Vui lòng kết nối PLC trước!', 'warning'); return; }
-            if (isSystemBusy)    { Swal.fire('Thông báo', 'Hệ thống đang bận, vui lòng chờ!', 'info'); return; }
+  const tag = document.getElementById('tagStatus');
+  tag.textContent = state;
+  tag.className = 'tb-tag ' + (
+    state==='IDLE' ? 'green' :
+    state==='ERROR'||state==='ESTOP' ? 'red' : 'orange'
+  );
+}
 
-            const uid = document.getElementById('uidInput').value.trim();
+function handleRobotState(data) {
+  const state = (data.state||'IDLE').toUpperCase();
+  const slot  = data.slot && data.slot!=='N/A' ? parseInt(data.slot) : null;
+  activeSlot   = state!=='IDLE' ? slot : null;
+  isSystemBusy = state!=='IDLE' && state!=='ESTOP';
+  setRobotState(state, slot ? `Slot ${slot}` : '');
+  updateButtons();
+  renderSlotGrid();
+}
 
-            if (actionType === 'EXPORT' && !uid && !selectedSlotId) {
-                Swal.fire('Thông báo', 'Vui lòng chọn ô kho hoặc nhập UID!', 'warning');
-                return;
-            }
+/* ═══════════════════════════════════════════════════════════════
+   BUTTONS
+═══════════════════════════════════════════════════════════════ */
+function updateButtons() {
+  const off = !isPlcConnected || isSystemBusy || isMaintenance;
+  document.getElementById('importBtn').disabled = off;
+  document.getElementById('exportBtn').disabled = off;
+}
 
-            const cmd = { action: actionType, uid: uid, item: uid };
-            if (actionType === 'EXPORT' && selectedSlotId) {
-                cmd.slot_id = selectedSlotId;
-            }
+/* ═══════════════════════════════════════════════════════════════
+   ACTION
+═══════════════════════════════════════════════════════════════ */
+function processAction(actionType) {
+  if (isMaintenance) {
+    Swal.fire({icon:'warning', title:'Đang bảo trì',
+      text:'Hệ thống đang ở chế độ bảo trì. Không thể thực hiện lệnh!',
+      background:'#1a1f2e', color:'#e6edf3',
+      confirmButtonColor:'#f0883e'});
+    return;
+  }
+  if (!isPlcConnected) { alertWarn('PLC chưa kết nối!'); return; }
+  if (isSystemBusy)    { alertInfo('Hệ thống đang bận, vui lòng chờ!'); return; }
 
-            isSystemBusy  = true;
-            currentAction = actionType;
-            setStatusDisplay(actionType === 'IMPORT' ? 'WAITING_RFID' : 'MOVING',
-                             actionType === 'IMPORT' ? '' : (selectedSlotId ? `Slot ${selectedSlotId}` : ''));
-            updateStatusBar();
-            updateButtons();
+  const uid = document.getElementById('uidInput').value.trim();
+  if (actionType==='EXPORT' && !uid && !selectedSlot) {
+    alertWarn('Chọn slot hoặc nhập UID!'); return;
+  }
 
-            if (mqttClient && mqttClient.connected) {
-                mqttClient.publish('warehouse/command', JSON.stringify(cmd));
-            }
+  const cmd = {action: actionType, uid, item: uid};
+  if (actionType==='EXPORT' && selectedSlot) cmd.slot_id = selectedSlot;
 
-            if (actionType === 'IMPORT') {
-                sessionStorage.setItem('_imp', '1');
-                showImportDialog();
-            } else if (actionType === 'EXPORT') {
-                const label = selectedSlotId ? `Slot ${selectedSlotId}` : (uid ? uid : '...');
-                sessionStorage.setItem('_exp', label);
-                showExportDialog(label);
-            }
-        }
+  isSystemBusy = true;
+  currentAction = actionType;
+  setRobotState(actionType==='IMPORT' ? 'WAITING_RFID' : 'MOVING',
+                actionType==='EXPORT' && selectedSlot ? `Slot ${selectedSlot}` : '');
+  updateButtons();
 
-        // ── PLC / MQTT ─────────────────────────────────────────────────────────
-        function updatePlcUI() {
-            const badge = document.getElementById('plcBadge');
-            badge.className = isPlcConnected ? 'bg-green' : 'bg-red';
-            badge.innerText = isPlcConnected ? 'CONNECTED' : 'DISCONNECTED';
-            if (isPlcConnected && !isMaintenanceMode) setStatusDisplay('IDLE');
-            updateButtons();
-        }
+  if (mqttClient && mqttClient.connected) {
+    mqttClient.publish('warehouse/command', JSON.stringify(cmd));
+    addPlcLog('send', `MQTT → warehouse/command`, cmd);
+  }
 
-        function connectMQTT() {
-            if (typeof mqtt === 'undefined') { Swal.fire('Error', 'Failed to load MQTT library', 'error'); return; }
-            mqttClient = mqtt.connect(MQTT_CFG.url, { ...MQTT_CFG.options, clientId: getClientId('warehouse') });
+  if (actionType==='IMPORT') {
+    sessionStorage.setItem('_imp','1');
+    showProgress('Đang nhập kho...','Robot đang di chuyển đến slot mục tiêu.', actionType);
+  } else {
+    const label = selectedSlot ? `Slot ${selectedSlot}` : uid || '...';
+    sessionStorage.setItem('_exp', label);
+    showProgress(`Đang xuất kho — ${label}`,'Robot đang di chuyển.', actionType);
+  }
+}
 
-            mqttClient.on('connect', () => {
-                mqttClient.subscribe([
-                    'warehouse/robot_state',
-                    'warehouse/ack',
-                    'warehouse/error',
-                    'warehouse/slot_data',
-                    'warehouse/maintenance_mode',
-                    'warehouse/plc_data'
-                ]);
-                // Request current slot status
-                setTimeout(() => mqttClient.publish('warehouse/command', JSON.stringify({ action: 'GET_STATUS' })), 600);
-            });
+function doEmergencyReset() {
+  Swal.fire({
+    icon:'warning', title:'EMERGENCY RESET',
+    text:'Dừng ngay mọi hoạt động?',
+    showCancelButton:true,
+    confirmButtonColor:'#f85149',
+    cancelButtonColor:'#444',
+    confirmButtonText:'⛔ Reset ngay',
+    cancelButtonText:'Hủy',
+    background:'#1a1f2e', color:'#e6edf3',
+  }).then(r=>{
+    if (!r.isConfirmed) return;
+    if (mqttClient && mqttClient.connected) {
+      mqttClient.publish('warehouse/command', JSON.stringify({action:'EMERGENCY_RESET'}));
+      addPlcLog('send','MQTT → EMERGENCY_RESET',{action:'EMERGENCY_RESET'});
+    }
+    isSystemBusy = false; activeSlot = null; currentAction = null;
+    setRobotState('IDLE');
+    updateButtons(); renderSlotGrid();
+    sessionStorage.removeItem('_imp'); sessionStorage.removeItem('_exp');
+    if (Swal.isVisible()) Swal.close();
+    Swal.fire({icon:'success',title:'Reset hoàn tất',timer:2000,showConfirmButton:false,
+      background:'#1a1f2e',color:'#e6edf3'});
+  });
+}
 
-            mqttClient.on('message', (t, m) => {
-                let data;
-                try { data = JSON.parse(m.toString()); } catch(e) { data = m.toString(); }
+function showProgress(title, html, action) {
+  Swal.fire({
+    title, html: html + `<br><button onclick="cancelCurrent()" style="margin-top:12px;padding:8px 18px;background:#f85149;border:none;border-radius:6px;color:#fff;font-weight:700;cursor:pointer">⛔ Hủy thao tác</button>`,
+    allowOutsideClick: false, allowEscapeKey: false,
+    showConfirmButton: false,
+    background:'#1a1f2e', color:'#e6edf3',
+    didOpen: ()=>Swal.showLoading()
+  });
+}
 
-                if (t === 'warehouse/robot_state')       handleRobotState(data);
-                if (t === 'warehouse/ack')               handleAck(data);
-                if (t === 'warehouse/slot_data')         syncGridFromPi(data);
-                if (t === 'warehouse/maintenance_mode')  {
-                    // Authoritative state from warehouse.py
-                    const active = data.active === true || data.active === 'true';
-                    setMaintenanceMode(active, data.timestamp || '');
-                    if (!active && isSystemBusy) {
-                        // If maintenance was released while we thought system was busy, clear it
-                        isSystemBusy = false;
-                        setStatusDisplay('IDLE');
-                        updateStatusBar();
-                    }
-                }
-                if (t === 'warehouse/plc_data') {
-                    // Use PLC connection status from warehouse.py data
-                    isPlcConnected = true;  // If we receive data, PLC is connected
-                    updatePlcUI();
-                    // Update banner time
-                    if (data.timestamp) {
-                        document.getElementById('bannerTime').textContent = 'Cập nhật: ' + data.timestamp;
-                    }
-                }
-                if (t === 'warehouse/error') {
-                    if (isMaintenanceMode) return;  // Maintenance site handles errors in maintenance mode
-                    const msg = typeof data === 'string' ? data : (data.message || JSON.stringify(data));
-                    sessionStorage.removeItem('_imp');
-                    sessionStorage.removeItem('_exp');
-                    isSystemBusy  = false;
-                    activeSlot    = null;
-                    currentAction = null;
-                    setStatusDisplay('ERROR', msg);
-                    updateStatusBar();
-                    updateButtons();
-                    initGrid();
-                    Swal.fire('Lỗi thiết bị', msg, 'error');
-                }
-            });
-        }
+function cancelCurrent() {
+  Swal.close();
+  doEmergencyReset();
+}
 
-        function logout() {
-            if (mqttClient) mqttClient.end(true);
-            doLogout();
-        }
+function handleAck(data) {
+  const action = typeof data==='object' ? data.action||'' : '';
+  const slot   = typeof data==='object' && data.slot ? parseInt(data.slot) : null;
+  const item   = typeof data==='object' ? data.item||'' : '';
 
-        window.addEventListener('beforeunload', () => { if (mqttClient) mqttClient.end(true); });
+  addPlcLog('recv', `ACK ← warehouse/ack`, data);
 
-        window.onload = () => {
-            initGrid();
-            updatePlcUI();
-            // Restore dialog if page reloaded during IMPORT / EXPORT
-            if (sessionStorage.getItem('_imp')) {
-                isSystemBusy  = true;
-                currentAction = 'IMPORT';
-                setStatusDisplay('MOVING');
-                updateStatusBar();
-                updateButtons();
-                showImportDialog();
-            } else if (sessionStorage.getItem('_exp')) {
-                isSystemBusy  = true;
-                currentAction = 'EXPORT';
-                setStatusDisplay('MOVING');
-                updateStatusBar();
-                updateButtons();
-                showExportDialog(sessionStorage.getItem('_exp'));
-            }
-            connectMQTT();
-            timeInterval = setInterval(() => {
-                document.getElementById('lastUpdate').innerText = new Date().toLocaleTimeString('vi-VN');
-            }, 1000);
-        };
-    </script>
+  if (action==='IMPORT') { sessionImports++; document.getElementById('statImport').textContent=sessionImports; }
+  if (action==='EXPORT') { sessionExports++; document.getElementById('statExport').textContent=sessionExports; }
+
+  // Update chart data
+  const h = new Date().getHours() - 6;
+  if (h>=0 && h<12) {
+    if (action==='IMPORT') hrImport[h]++;
+    if (action==='EXPORT') hrExport[h]++;
+    updateHourChart();
+  }
+  if (slot) {
+    const s = slot - 1;
+    if (action==='IMPORT') slotImp[s]++;
+    if (action==='EXPORT') slotExp[s]++;
+    updateSlotChart();
+  }
+
+  isSystemBusy = false; activeSlot = null; currentAction = null;
+  setRobotState('IDLE');
+  updateButtons(); renderSlotGrid();
+  selectedSlot = null;
+  document.getElementById('uidInput').value = '';
+  sessionStorage.removeItem('_imp'); sessionStorage.removeItem('_exp');
+
+  const title = action==='IMPORT' ? '✅ Nhập hàng thành công!' : '✅ Xuất hàng thành công!';
+  if (Swal.isVisible()) {
+    Swal.hideLoading();
+    Swal.update({title, html:`<b>Slot ${slot||'?'} — ${item}</b>`, footer:'', showConfirmButton:false});
+    setTimeout(()=>Swal.close(), 3000);
+  } else if (action==='IMPORT'||action==='EXPORT') {
+    Swal.fire({icon:'success', title, text:`Slot ${slot||'?'} — ${item}`,
+      timer:3000, showConfirmButton:false, background:'#1a1f2e', color:'#e6edf3'});
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   EVENT LOG
+═══════════════════════════════════════════════════════════════ */
+function addEventLog(entry) {
+  const act = (entry.act||'').toUpperCase();
+  const tbody = document.getElementById('eventLogBody');
+  // Remove placeholder
+  const ph = tbody.querySelector('td[colspan]');
+  if (ph) ph.parentElement.remove();
+
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>${escapeHtml(entry.time||'')}</td>
+    <td><span class="badge ${act.toLowerCase()}">${act}</span></td>
+    <td>Slot ${escapeHtml(String(entry.slot||'?'))}</td>
+    <td>${escapeHtml(entry.item||'–')}</td>
+    <td style="font-size:9px;color:var(--text3)">${escapeHtml(entry.uid||'–')}</td>`;
+  tbody.insertBefore(tr, tbody.firstChild);
+  while (tbody.children.length > 50) tbody.removeChild(tbody.lastChild);
+}
+
+function loadHistory(list) {
+  if (!Array.isArray(list)) return;
+  [...list].reverse().forEach(addEventLog);
+}
+
+function clearEventLog() {
+  document.getElementById('eventLogBody').innerHTML =
+    '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px">Đã xóa…</td></tr>';
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PLC COMMAND LOG (right panel)
+═══════════════════════════════════════════════════════════════ */
+function addPlcLog(type, desc, payload) {
+  const ts = new Date().toLocaleTimeString('vi-VN');
+  const entry = {type, desc, payload, ts};
+  plcLogEntries.unshift(entry);
+  if (plcLogEntries.length > 200) plcLogEntries.pop();
+
+  const scroll = document.getElementById('plcLogScroll');
+  const el = document.createElement('div');
+  el.className = `plc-entry ${type==='send'?'send':type==='recv'?'recv':'err'}`;
+
+  const arrow = type==='send' ? '▶' : type==='recv' ? '◀' : '⚠';
+  const arrowCls = type==='send' ? 'send' : type==='recv' ? 'recv' : 'err';
+  const payloadStr = typeof payload==='object'
+    ? JSON.stringify(payload, null, 0)
+    : String(payload||'');
+
+  el.innerHTML = `
+    <div class="plc-arrow ${arrowCls}">${arrow}</div>
+    <div class="plc-body">
+      <div class="plc-ts">${ts}</div>
+      <div class="plc-desc">${escapeHtml(desc)}</div>
+      <div class="plc-payload">${escapeHtml(payloadStr)}</div>
+    </div>`;
+
+  scroll.insertBefore(el, scroll.firstChild);
+  document.getElementById('plcLogCount').textContent = plcLogEntries.length + ' entries';
+}
+
+function clearPlcLog() {
+  plcLogEntries = [];
+  document.getElementById('plcLogScroll').innerHTML = '';
+  document.getElementById('plcLogCount').textContent = '0 entries';
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CHARTS
+═══════════════════════════════════════════════════════════════ */
+let chartHour, chartSlot;
+
+function initCharts() {
+  const dflt = {
+    responsive:true,
+    maintainAspectRatio:true,
+    plugins:{ legend:{labels:{color:'#8b949e',font:{size:11}}} },
+    scales:{
+      x:{ticks:{color:'#8b949e',font:{size:10}}, grid:{color:'#ffffff08'}},
+      y:{ticks:{color:'#8b949e',font:{size:10}}, grid:{color:'#ffffff08'}, beginAtZero:true},
+    },
+  };
+
+  chartHour = new Chart(document.getElementById('chartHour'), {
+    type:'bar',
+    data:{
+      labels: HOURS,
+      datasets:[
+        {label:'Import', data:[...hrImport], backgroundColor:'#3fb95066', borderColor:'#3fb950', borderWidth:1.5, borderRadius:4},
+        {label:'Export', data:[...hrExport], backgroundColor:'#58a6ff44', borderColor:'#58a6ff', borderWidth:1.5, borderRadius:4},
+      ]
+    },
+    options:{...dflt},
+  });
+
+  chartSlot = new Chart(document.getElementById('chartSlot'), {
+    type:'bar',
+    data:{
+      labels: Array.from({length:9},(_,i)=>`S${i+1}`),
+      datasets:[
+        {label:'Import', data:[...slotImp], backgroundColor:'#3fb95066', borderColor:'#3fb950', borderWidth:1.5, borderRadius:4},
+        {label:'Export', data:[...slotExp], backgroundColor:'#f0883e66', borderColor:'#f0883e', borderWidth:1.5, borderRadius:4},
+      ]
+    },
+    options:{...dflt},
+  });
+}
+
+function updateHourChart() {
+  if (!chartHour) return;
+  chartHour.data.datasets[0].data = [...hrImport];
+  chartHour.data.datasets[1].data = [...hrExport];
+  chartHour.update('none');
+}
+function updateSlotChart() {
+  if (!chartSlot) return;
+  chartSlot.data.datasets[0].data = [...slotImp];
+  chartSlot.data.datasets[1].data = [...slotExp];
+  chartSlot.update('none');
+}
+
+function seedChartsFromHistory(hist) {
+  hrImport = Array(12).fill(0);
+  hrExport = Array(12).fill(0);
+  slotImp  = Array(9).fill(0);
+  slotExp  = Array(9).fill(0);
+  hist.forEach(e=>{
+    const act = (e.act||'').toUpperCase();
+    const h   = parseInt(String(e.time||'').split(':')[0]) - 6;
+    const s   = parseInt(String(e.slot||'0').replace(/\D/g,'')) - 1;
+    if (h>=0 && h<12) { act==='IMPORT'?hrImport[h]++:act==='EXPORT'?hrExport[h]++:0; }
+    if (s>=0 && s<9)  { act==='IMPORT'?slotImp[s]++:act==='EXPORT'?slotExp[s]++:0; }
+  });
+  updateHourChart();
+  updateSlotChart();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MQTT
+═══════════════════════════════════════════════════════════════ */
+function connectMQTT() {
+  if (typeof mqtt==='undefined') { console.error('mqtt lib missing'); return; }
+  mqttClient = mqtt.connect(MQTT_CFG.url, {
+    ...MQTT_CFG.options,
+    clientId: getClientId('warehouse_v3'),
+  });
+
+  mqttClient.on('connect', ()=>{
+    document.getElementById('mqttLed').className  = 'sc-led ok';
+    document.getElementById('mqttSubTxt').textContent = 'CONNECTED';
+    addPlcLog('recv','MQTT CONNECTED',{broker: MQTT_CFG.url});
+    mqttClient.subscribe([
+      'warehouse/robot_state',
+      'warehouse/ack',
+      'warehouse/error',
+      'warehouse/slot_data',
+      'warehouse/maintenance_mode',
+      'warehouse/history',
+      'warehouse/history_init',
+      'warehouse/status',
+      'warehouse/system_info',
+    ]);
+    setTimeout(()=>{
+      mqttClient.publish('warehouse/command', JSON.stringify({action:'GET_STATUS'}));
+      mqttClient.publish('warehouse/command', JSON.stringify({action:'GET_HISTORY'}));
+      addPlcLog('send','MQTT → GET_STATUS + GET_HISTORY',{});
+    }, 800);
+  });
+
+  mqttClient.on('offline', ()=>{
+    document.getElementById('mqttLed').className  = 'sc-led err';
+    document.getElementById('mqttSubTxt').textContent = 'DISCONNECTED';
+    addPlcLog('err','MQTT OFFLINE',{});
+  });
+
+  mqttClient.on('message', (topic, raw)=>{
+    let data;
+    try { data = JSON.parse(raw.toString()); } catch(e) { data = raw.toString(); }
+
+    // Log all incoming MQTT to PLC log panel
+    addPlcLog('recv', `MQTT ← ${topic}`, data);
+
+    switch(topic) {
+      case 'warehouse/robot_state':
+        handleRobotState(data); break;
+
+      case 'warehouse/ack':
+        handleAck(data); break;
+
+      case 'warehouse/slot_data':
+        syncGrid(data); break;
+
+      case 'warehouse/maintenance_mode': {
+        const active = data.active===true || data.active==='true';
+        updateMaintenanceUI(active, data.timestamp||'');
+        const modeTag = document.getElementById('tagMode');
+        modeTag.textContent = active ? 'MANUAL' : 'AUTO';
+        modeTag.className   = 'tb-tag ' + (active ? 'orange' : 'green');
+        break;
+      }
+
+      case 'warehouse/status':
+        isPlcConnected = data.plc==='connected';
+        document.getElementById('plcLed').className   = isPlcConnected ? 'sc-led ok' : 'sc-led err';
+        document.getElementById('plcSubTxt').textContent = isPlcConnected ? 'CONNECTED' : 'DISCONNECTED';
+        document.getElementById('rfidLed').className  = data.rfid==='ready' ? 'sc-led ok' : 'sc-led warn';
+        document.getElementById('rfidSubTxt').textContent = data.rfid || 'unknown';
+        const plcTag = document.getElementById('tagPlc');
+        plcTag.textContent = isPlcConnected ? 'PLC ONLINE' : 'PLC OFFLINE';
+        plcTag.className   = 'tb-tag ' + (isPlcConnected ? 'green' : 'red');
+        updateButtons(); break;
+
+      case 'warehouse/history_init':
+        if (Array.isArray(data)) { loadHistory(data); seedChartsFromHistory(data); } break;
+
+      case 'warehouse/history':
+        addEventLog(data); break;
+
+      case 'warehouse/error': {
+        if (isMaintenance) break;
+        const msg = typeof data==='string' ? data : (data.message||JSON.stringify(data));
+        isSystemBusy=false; activeSlot=null; currentAction=null;
+        setRobotState('ERROR', msg);
+        updateButtons(); renderSlotGrid();
+        sessionStorage.removeItem('_imp'); sessionStorage.removeItem('_exp');
+        if (Swal.isVisible()) Swal.close();
+        Swal.fire({icon:'error', title:'Lỗi thiết bị', text:msg,
+          background:'#1a1f2e', color:'#e6edf3'});
+        break;
+      }
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════════════════ */
+function alertWarn(msg)  { Swal.fire({icon:'warning', title:'Cảnh báo', text:msg, background:'#1a1f2e', color:'#e6edf3', timer:3000, showConfirmButton:false}); }
+function alertInfo(msg)  { Swal.fire({icon:'info',    title:'Thông báo', text:msg, background:'#1a1f2e', color:'#e6edf3', timer:3000, showConfirmButton:false}); }
+
+function doLogout() {
+  if (mqttClient) mqttClient.end(true);
+  if (typeof doLogout_cfg === 'function') { doLogout_cfg(); return; }
+  sessionStorage.clear();
+  localStorage.removeItem('isLoggedIn');
+  location.href = 'index.html';
+}
+
+const _em = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#x27;'};
+function escapeHtml(s) { return String(s??'').replace(/[&<>"']/g,c=>_em[c]); }
+
+/* ═══════════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════════ */
+window.onload = ()=>{
+  // Load user info
+  const user = sessionStorage.getItem('_user') || localStorage.getItem('warehouseUser') || 'Operator';
+  document.getElementById('userName').textContent = user;
+  document.getElementById('userAvatar').textContent = user.charAt(0).toUpperCase();
+
+  initCharts();
+  renderSlotGrid();
+  setRobotState('DISCONNECTED');
+  connectMQTT();
+
+  // Restore pending session
+  if (sessionStorage.getItem('_imp')) {
+    isSystemBusy=true; currentAction='IMPORT';
+    setRobotState('MOVING'); updateButtons();
+    showProgress('Đang nhập kho...','Robot đang di chuyển.','IMPORT');
+  } else if (sessionStorage.getItem('_exp')) {
+    isSystemBusy=true; currentAction='EXPORT';
+    setRobotState('MOVING'); updateButtons();
+    showProgress('Đang xuất kho...','Robot đang di chuyển.','EXPORT');
+  }
+};
+
+window.addEventListener('beforeunload',()=>{ if(mqttClient) mqttClient.end(true); });
+</script>
 </body>
 </html>
