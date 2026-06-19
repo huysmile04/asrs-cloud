@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Operation Logs - HCMUTE</title>
-    
+
     <script src="config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mqtt@5.3.4/dist/mqtt.min.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.17.0/dist/xlsx.full.min.js" crossorigin="anonymous"></script>
@@ -12,90 +13,431 @@
 
     <style>
         /* GIỮ NGUYÊN CSS GIAO DIỆN */
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        body { background-color: #f2f6fb; color: #1f2937; padding: 30px 20px; min-height: 100vh; }
-        .logs-page { width: 100%; max-width: 1200px; margin: 0 auto; }
-        .page-header { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 25px; }
-        .page-header .breadcrumbs { display: flex; align-items: center; gap: 10px; color: #64748b; font-size: 14px; }
-        .page-header .breadcrumbs a { color: #64748b; text-decoration: none; }
-        .page-header .breadcrumbs span { color: #94a3b8; }
-        .page-title { font-size: 28px; font-weight: 700; color: #0f172a; }
-        .header-actions { display: flex; align-items: center; gap: 12px; }
-        
-        .btn-secondary, .btn-primary, .btn-warning { border: none; border-radius: 12px; padding: 12px 20px; font-size: 14px; font-weight: 700; cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; }
-        .btn-secondary { background: #ffffff; color: #0f172a; box-shadow: 0 10px 25px rgba(15, 23, 42, 0.07); }
-        .btn-primary { background: #00529c; color: #ffffff; box-shadow: 0 10px 25px rgba(0, 82, 156, 0.18); }
-        .btn-warning { background: #f59e0b; color: #ffffff; box-shadow: 0 10px 25px rgba(245, 158, 11, 0.18); } /* Nút Test */
-        .btn-secondary:hover, .btn-primary:hover, .btn-warning:hover { transform: translateY(-2px); }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
 
-        .summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; margin-bottom: 30px; }
-        .metric-card { background: #ffffff; border-radius: 18px; padding: 24px 22px; box-shadow: 0 14px 35px rgba(15, 23, 42, 0.05); display: flex; flex-direction: column; gap: 12px; }
-        .metric-card .metric-label { color: #475569; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; }
-        .metric-card .metric-value { font-size: 32px; font-weight: 700; color: #0f172a; }
-        .metric-card .metric-note { color: #64748b; font-size: 13px; line-height: 1.6; }
+        body {
+            background-color: #f2f6fb;
+            color: #1f2937;
+            padding: 30px 20px;
+            min-height: 100vh;
+        }
 
-        .content-grid { display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: 24px; }
-        .panel-card { background: #ffffff; border-radius: 22px; box-shadow: 0 14px 35px rgba(15, 23, 42, 0.05); overflow: hidden; }
-        .panel-card .panel-header { padding: 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eef2f7; }
-        .panel-card .panel-header h3 { font-size: 18px; font-weight: 700; color: #0f172a; }
-        .panel-card .panel-header .status-pill { padding: 8px 14px; border-radius: 999px; font-size: 13px; font-weight: 700; color: #ffffff; }
-        
-        .status-pill.connected { background: #16a34a; }
-        .status-pill.disconnected { background: #dc2626; }
-        .status-pill.connecting { background: #f59e0b; }
+        .logs-page {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
 
-        .panel-body { padding: 24px; }
-        .info-list { display: grid; gap: 14px; }
-        .info-item { display: grid; grid-template-columns: max-content minmax(120px, 1fr); align-items: center; gap: 12px; padding: 16px 18px; border-radius: 16px; background: #f8fafc; min-height: 56px; }
-        .info-item strong { color: #0f172a; font-size: 14px; letter-spacing: 0.01em; line-height: 1.4; white-space: nowrap; }
-        .info-item span { color: #334155; font-size: 14px; text-align: right; line-height: 1.5; justify-self: end; }
-        .plc-btn { width: 100%; padding: 14px; border: none; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: default; color: #fff; transition: background 0.3s; }
-        .plc-btn.connected    { background: #16a34a; }
-        .plc-btn.disconnected { background: #dc2626; }
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
 
-        .table-panel { display: flex; flex-direction: column; gap: 20px; }
-        .table-card { background: #ffffff; border-radius: 22px; box-shadow: 0 14px 35px rgba(15, 23, 42, 0.05); overflow: hidden; }
-        .table-card .table-header { padding: 24px; display: flex; justify-content: space-between; align-items: center; gap: 14px; border-bottom: 1px solid #eef2f7; }
-        .table-card .table-header h3 { margin: 0; font-size: 18px; color: #0f172a; }
-        .table-wrapper { overflow-x: auto; min-height: 200px; }
-        table { width: 100%; min-width: 720px; border-collapse: collapse; text-align: center; }
-        th, td { padding: 18px 22px; border-bottom: 1px solid #eef2f7; text-align: center; }
-        th { background: #f8fafc; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
-        td { color: #334155; font-size: 14px; }
-        tbody tr:hover { background: #f1f5f9; }
-        .table-caption { color: #64748b; font-size: 13px; padding: 0 24px 18px; }
+        .page-header .breadcrumbs {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #64748b;
+            font-size: 14px;
+        }
 
-        .time-col { font-family: monospace; font-size: 14px; color: #64748b; }
-        .slot-col { font-weight: bold; color: #0f172a; }
-        .badge { padding: 8px 16px; border-radius: 999px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; min-width: 90px; background-color: #e2e8f0; color: #475569;}
-        .badge-import { background-color: #dcfce7; color: #166534; }
-        .badge-export { background-color: #fee2e2; color: #991b1b; }
+        .page-header .breadcrumbs a {
+            color: #64748b;
+            text-decoration: none;
+        }
+
+        .page-header .breadcrumbs span {
+            color: #94a3b8;
+        }
+
+        .page-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .btn-secondary,
+        .btn-primary,
+        .btn-warning {
+            border: none;
+            border-radius: 12px;
+            padding: 12px 20px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .btn-secondary {
+            background: #ffffff;
+            color: #0f172a;
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.07);
+        }
+
+        .btn-primary {
+            background: #00529c;
+            color: #ffffff;
+            box-shadow: 0 10px 25px rgba(0, 82, 156, 0.18);
+        }
+
+        .btn-warning {
+            background: #f59e0b;
+            color: #ffffff;
+            box-shadow: 0 10px 25px rgba(245, 158, 11, 0.18);
+        }
+
+        /* Nút Test */
+        .btn-secondary:hover,
+        .btn-primary:hover,
+        .btn-warning:hover {
+            transform: translateY(-2px);
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 18px;
+            margin-bottom: 30px;
+        }
+
+        .metric-card {
+            background: #ffffff;
+            border-radius: 18px;
+            padding: 24px 22px;
+            box-shadow: 0 14px 35px rgba(15, 23, 42, 0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .metric-card .metric-label {
+            color: #475569;
+            font-size: 13px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .metric-card .metric-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .metric-card .metric-note {
+            color: #64748b;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: 380px minmax(0, 1fr);
+            gap: 24px;
+        }
+
+        .panel-card {
+            background: #ffffff;
+            border-radius: 22px;
+            box-shadow: 0 14px 35px rgba(15, 23, 42, 0.05);
+            overflow: hidden;
+        }
+
+        .panel-card .panel-header {
+            padding: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #eef2f7;
+        }
+
+        .panel-card .panel-header h3 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .panel-card .panel-header .status-pill {
+            padding: 8px 14px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .status-pill.connected {
+            background: #16a34a;
+        }
+
+        .status-pill.disconnected {
+            background: #dc2626;
+        }
+
+        .status-pill.connecting {
+            background: #f59e0b;
+        }
+
+        .panel-body {
+            padding: 24px;
+        }
+
+        .info-list {
+            display: grid;
+            gap: 14px;
+        }
+
+        .info-item {
+            display: grid;
+            grid-template-columns: max-content minmax(120px, 1fr);
+            align-items: center;
+            gap: 12px;
+            padding: 16px 18px;
+            border-radius: 16px;
+            background: #f8fafc;
+            min-height: 56px;
+        }
+
+        .info-item strong {
+            color: #0f172a;
+            font-size: 14px;
+            letter-spacing: 0.01em;
+            line-height: 1.4;
+            white-space: nowrap;
+        }
+
+        .info-item span {
+            color: #334155;
+            font-size: 14px;
+            text-align: right;
+            line-height: 1.5;
+            justify-self: end;
+        }
+
+        .plc-btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: default;
+            color: #fff;
+            transition: background 0.3s;
+        }
+
+        .plc-btn.connected {
+            background: #16a34a;
+        }
+
+        .plc-btn.disconnected {
+            background: #dc2626;
+        }
+
+        .table-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .table-card {
+            background: #ffffff;
+            border-radius: 22px;
+            box-shadow: 0 14px 35px rgba(15, 23, 42, 0.05);
+            overflow: hidden;
+        }
+
+        .table-card .table-header {
+            padding: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 14px;
+            border-bottom: 1px solid #eef2f7;
+        }
+
+        .table-card .table-header h3 {
+            margin: 0;
+            font-size: 18px;
+            color: #0f172a;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            min-height: 200px;
+        }
+
+        table {
+            width: 100%;
+            min-width: 720px;
+            border-collapse: collapse;
+            text-align: center;
+        }
+
+        th,
+        td {
+            padding: 18px 22px;
+            border-bottom: 1px solid #eef2f7;
+            text-align: center;
+        }
+
+        th {
+            background: #f8fafc;
+            color: #475569;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        td {
+            color: #334155;
+            font-size: 14px;
+        }
+
+        tbody tr:hover {
+            background: #f1f5f9;
+        }
+
+        .table-caption {
+            color: #64748b;
+            font-size: 13px;
+            padding: 0 24px 18px;
+        }
+
+        .time-col {
+            font-family: monospace;
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        .slot-col {
+            font-weight: bold;
+            color: #0f172a;
+        }
+
+        .badge {
+            padding: 8px 16px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 90px;
+            background-color: #e2e8f0;
+            color: #475569;
+        }
+
+        .badge-import {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+
+        .badge-export {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
 
         /* === RESPONSIVE === */
         @media (max-width: 1100px) {
-            .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-            .content-grid { grid-template-columns: 1fr; }
+            .summary-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
         }
+
         @media (max-width: 680px) {
-            body { padding: 16px 12px; }
-            .page-header { flex-direction: column; align-items: flex-start; gap: 14px; }
-            .header-actions { width: 100%; justify-content: flex-start; flex-wrap: wrap; gap: 8px; }
-            .btn-secondary, .btn-primary, .btn-warning { padding: 10px 14px; font-size: 13px; }
-            .page-title { font-size: 22px; }
-            .metric-card { padding: 18px 16px; }
-            .metric-card .metric-value { font-size: 26px; }
-            .panel-card .panel-header { flex-direction: column; align-items: flex-start; gap: 10px; }
-            th, td { padding: 12px 14px; font-size: 13px; }
-            .table-card .table-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+            body {
+                padding: 16px 12px;
+            }
+
+            .page-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 14px;
+            }
+
+            .header-actions {
+                width: 100%;
+                justify-content: flex-start;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .btn-secondary,
+            .btn-primary,
+            .btn-warning {
+                padding: 10px 14px;
+                font-size: 13px;
+            }
+
+            .page-title {
+                font-size: 22px;
+            }
+
+            .metric-card {
+                padding: 18px 16px;
+            }
+
+            .metric-card .metric-value {
+                font-size: 26px;
+            }
+
+            .panel-card .panel-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            th,
+            td {
+                padding: 12px 14px;
+                font-size: 13px;
+            }
+
+            .table-card .table-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
         }
+
         @media (max-width: 420px) {
-            .summary-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
-            .metric-card .metric-value { font-size: 22px; }
-            .page-title { font-size: 20px; }
-            body { padding: 12px 10px; }
+            .summary-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+            }
+
+            .metric-card .metric-value {
+                font-size: 22px;
+            }
+
+            .page-title {
+                font-size: 20px;
+            }
+
+            body {
+                padding: 12px 10px;
+            }
         }
     </style>
 </head>
+
 <body>
 
     <div class="logs-page">
@@ -108,7 +450,8 @@
                 </div>
                 <h1 class="page-title">Operation Logs</h1>
                 <p style="margin-top: 10px; color: #64748b; max-width: 640px;">
-                    Records all import/export operations of the automated warehouse system. Data is updated directly from the device via MQTT.
+                    Records all import/export operations of the automated warehouse system. Data is updated directly
+                    from the device via MQTT.
                 </p>
             </div>
             <div class="header-actions">
@@ -154,7 +497,8 @@
                             <span>HiveMQ Cloud</span>
                         </div>
                         <div class="info-item" style="display:block; padding: 0; background: none;">
-                            <strong style="display:block; margin-bottom: 8px; font-size:13px; color:#475569;">PLC S7-1200 Connection</strong>
+                            <strong style="display:block; margin-bottom: 8px; font-size:13px; color:#475569;">PLC
+                                S7-1200 Connection</strong>
                             <button id="plcBtn" class="plc-btn disconnected">🔴 PLC Disconnected</button>
                         </div>
                     </div>
@@ -167,7 +511,7 @@
                         <h3>Activity log table</h3>
                         <button class="btn-primary" onclick="exportData()">Export CSV / Excel</button>
                     </div>
-                    <div class="table-caption">The latest operations will automatically appear here. Press F12 and select Console to view Logs.</div>
+                    <!--<div class="table-caption">The latest operations will automatically appear here. Press F12 and select Console to view Logs.</div>-->
                     <div class="table-wrapper">
                         <table id="hTable">
                             <thead>
@@ -179,7 +523,10 @@
                                 </tr>
                             </thead>
                             <tbody id="logsBody">
-                                <tr><td colspan="4" style="text-align:center; padding: 30px; color:#999;">Waiting for data from device...</td></tr>
+                                <tr>
+                                    <td colspan="4" style="text-align:center; padding: 30px; color:#999;">Waiting for
+                                        data from device...</td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -205,15 +552,15 @@
             document.getElementById('statusPill').innerText = 'Connecting...';
 
             client = mqtt.connect(MQTT_CFG.url, { ...MQTT_CFG.options, clientId: getClientId('logs') });
-            
+
             client.on('connect', () => {
                 document.getElementById('statusPill').className = 'status-pill connected';
                 document.getElementById('statusPill').innerText = 'Connected';
 
-                client.subscribe(['warehouse/history', 'warehouse/history_init', 'warehouse/error', 'warehouse/status'], function(err) {
+                client.subscribe(['warehouse/history', 'warehouse/history_init', 'warehouse/error', 'warehouse/status'], function (err) {
                     if (!err) {
                         setTimeout(() => {
-                            client.publish('warehouse/command', JSON.stringify({action: "GET_HISTORY"}));
+                            client.publish('warehouse/command', JSON.stringify({ action: "GET_HISTORY" }));
                         }, 500);
                     }
                 });
@@ -221,8 +568,8 @@
 
             client.on('message', (t, m) => {
                 const s = m.toString();
-                let d; 
-                try { d = JSON.parse(s); } catch(e) { d = s; }
+                let d;
+                try { d = JSON.parse(s); } catch (e) { d = s; }
 
                 console.log(`[MQTT NHẬN ĐƯỢC] Topic: ${t} | Dữ liệu:`, d);
 
@@ -235,9 +582,9 @@
                     }
                     lastMsg = s;
                 }
-                
+
                 // KHI NHẬN LỊCH SỬ BAN ĐẦU
-                if (t === 'warehouse/history_init') { 
+                if (t === 'warehouse/history_init') {
                     clearEmptyMessage();
                     let dataArray = [];
 
@@ -298,7 +645,7 @@
             const l = {
                 time: escapeHtml(raw.time || raw.timestamp || '--:--:--'),
                 slot: escapeHtml(String(raw.slot || raw.slot_id || 'N/A')),
-                act:  escapeHtml((raw.act || raw.action || 'UNKNOWN').toUpperCase()),
+                act: escapeHtml((raw.act || raw.action || 'UNKNOWN').toUpperCase()),
                 item: escapeHtml(raw.item || raw.item_name || '---')
             };
             cntTotal++;
@@ -317,9 +664,9 @@
         }
 
         function updateStats() {
-            document.getElementById('metricTotal').innerText      = cntTotal;
-            document.getElementById('metricImport').innerText     = cntImp;
-            document.getElementById('metricExport').innerText     = cntExp;
+            document.getElementById('metricTotal').innerText = cntTotal;
+            document.getElementById('metricImport').innerText = cntImp;
+            document.getElementById('metricExport').innerText = cntExp;
             if (cntTotal > 0) document.getElementById('metricLastUpdate').innerText = new Date().toLocaleTimeString('vi-VN');
         }
 
@@ -333,4 +680,5 @@
         window.onload = connect;
     </script>
 </body>
+
 </html>
