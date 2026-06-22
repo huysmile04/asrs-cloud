@@ -604,12 +604,15 @@
                     dataArray.sort((a, b) => {
                         const tA = String(a.time || a.timestamp || "");
                         const tB = String(b.time || b.timestamp || "");
-                        return tA.localeCompare(tB);
+                        return tB.localeCompare(tA); // Sắp xếp mới nhất lên đầu (giảm dần)
                     });
 
                     cntTotal = 0; cntImp = 0; cntExp = 0;
                     document.getElementById("logsBody").innerHTML = "";
-                    dataArray.forEach(l => addRow(l));
+                    dataArray.forEach(l => {
+                        const row = createRowHTML(l);
+                        document.getElementById("logsBody").insertAdjacentHTML('beforeend', row);
+                    });
                     updateStats();
                 }
 
@@ -642,7 +645,7 @@
             }
         }
 
-        function addRow(raw) {
+        function createRowHTML(raw) {
             const l = {
                 time: escapeHtml(raw.time || raw.timestamp || '--:--:--'),
                 slot: escapeHtml(String(raw.slot || raw.slot_id || 'N/A')),
@@ -654,14 +657,19 @@
             else if (l.act === 'EXPORT') cntExp++;
 
             const badgeClass = l.act === 'IMPORT' ? 'badge-import' : l.act === 'EXPORT' ? 'badge-export' : 'badge';
-            document.getElementById("logsBody").insertAdjacentHTML('afterbegin', `
+            return `
                 <tr>
                     <td class="time-col">${l.time}</td>
                     <td class="slot-col">${l.slot.includes('Slot') ? l.slot : 'Slot ' + l.slot}</td>
                     <td><span class="badge ${badgeClass}">${l.act}</span></td>
                     <td>${l.item}</td>
                 </tr>
-            `);
+            `;
+        }
+
+        function addRow(raw) {
+            const rowHTML = createRowHTML(raw);
+            document.getElementById("logsBody").insertAdjacentHTML('afterbegin', rowHTML);
         }
 
         function updateStats() {

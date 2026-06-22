@@ -495,7 +495,7 @@
         const defaultData = Object.fromEntries(
             Array.from({ length: 9 }, (_, i) => [i + 1, { uid: null, status: 'available' }])
         );
-        let slotData = JSON.parse(localStorage.getItem('warehouseDataV2')) || defaultData;
+        let slotData = defaultData;
 
         // ── GRID ───────────────────────────────────────────────────────────────
         function initGrid() {
@@ -545,7 +545,6 @@
                     status: info.status === 'Occupied' ? 'occupied' : 'available'
                 };
             }
-            localStorage.setItem('warehouseDataV2', JSON.stringify(slotData));
             initGrid();
         }
 
@@ -757,15 +756,10 @@
             updateButtons();
 
             if (typeof data === 'object' && data.slot) {
-                const sid = parseInt(data.slot);
-                if (action === 'IMPORT' && data.uid) {
-                    slotData[sid] = { uid: data.uid, item: data.item || data.uid || '', status: 'occupied' };
-                } else if (action === 'EXPORT') {
-                    slotData[sid] = { uid: null, status: 'available' };
-                }
-                localStorage.setItem('warehouseDataV2', JSON.stringify(slotData));
+                // Rely purely on warehouse/slot_data from Pi to sync the grid
+                // No local spoofing of slotData!
             }
-            initGrid();
+            // Do not call initGrid here to avoid double-render before syncGridFromPi
             document.getElementById('uidInput').value = '';
             selectedSlotId = null;
 
@@ -796,41 +790,13 @@
             }
 
             if (actionType === 'IMPORT') {
-                // Hiện dialog xác nhận thông tin trước khi gửi lệnh
-                _showImportConfirmDialog(uid);
+                // CHẠY THẬT 100%: Gửi luôn lệnh IMPORT mà KHÔNG truyền UID từ web,
+                // ép Ras phải dùng thẻ RFID và tự trả về số slot.
+                _startImport("");
             } else {
                 // EXPORT: gửi lệnh ngay, hiện dialog đang vận chuyển
                 _startExport(uid);
             }
-        }
-
-
-
-        function _showImportConfirmDialog(uid) {
-            Swal.fire({
-                title: '📥 Xác nhận nhập hàng',
-                html: `
-                    <div style="text-align:left; margin-bottom:8px;">
-                        <b>Thông tin sản phẩm:</b><br>
-                        <span style="font-family:monospace; background:#eee; padding:4px 10px; border-radius:4px; display:inline-block; margin-top:4px;">
-                            ${uid ? escapeHtml(uid) : '<em style="color:#aaa;">Không có (sẽ dùng RFID)</em>'}
-                        </span>
-                    </div>
-                    <div style="font-size:13px; color:#555;">
-                        Sau khi nhấn <b>"Nhập hàng"</b>, hệ thống sẽ:<br>
-                        1. Yêu cầu quét thẻ RFID<br>
-                        2. Robot di chuyển đến slot trống
-                    </div>`,
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#00529c',
-                cancelButtonColor: '#888',
-                confirmButtonText: '📥 Nhập hàng',
-                cancelButtonText: '✖ Hủy'
-            }).then(result => {
-                if (!result.isConfirmed) return;
-                _startImport(uid);
-            });
         }
 
         function _startImport(uid) {
