@@ -446,7 +446,7 @@
                 <h3>🤖 Automatic Control</h3>
 
                 <!-- HỘP TRẠNG THÁI HỆ THỐNG -->
-                <div class="sys-status-box" id="sysStatusBox">
+                <div class="sys-status-box" id="sysStatusBox" ondblclick="forceResetUI()" title="Double click to force reset UI if stuck">
                     <div class="sys-status-icon" id="sysStatusIcon">🔌</div>
                     <div class="sys-status-text" id="sysStatusText">PLC Disconnected</div>
                     <div class="sys-status-sub" id="sysStatusSub"></div>
@@ -556,6 +556,7 @@
             ERROR: { icon: '🔴', text: 'System Error', cls: 'error' },
             DISCONNECTED: { icon: '🔌', text: 'PLC Disconnected', cls: '' },
             MAINTENANCE: { icon: '🛠️', text: 'System Maintenance', cls: 'error' },
+            RUNNING: { icon: '⚙️', text: 'System Running', cls: 'busy' }
         };
 
         function setStatusDisplay(state, sub) {
@@ -580,6 +581,13 @@
             const off = !isPlcConnected || isSystemBusy || isMaintenanceMode;
             document.getElementById('importBtn').disabled = off;
             document.getElementById('exportBtn').disabled = off;
+        }
+
+        function forceResetUI() {
+            if (mqttClient && mqttClient.connected) {
+                mqttClient.publish('warehouse/robot_state', JSON.stringify({state: 'IDLE', slot: 'N/A'}), {retain: true});
+            }
+            _doCancelOperation();
         }
 
         // ── HỦY THAO TÁC ──────────────────────────────────────────────────────
