@@ -53,7 +53,9 @@ function computeStats(data) {
 }
 
 function initMaintMode() {
-    if (typeof window === 'undefined' || window.location.pathname.includes('login.html')) return;
+    if (typeof window === 'undefined' || 
+        window.location.pathname.includes('login.html') || 
+        window.location.pathname.includes('warehouse.html')) return;
 
     function loadScript(src, cb) {
         if(document.querySelector(`script[src="${src}"]`)) return cb();
@@ -130,12 +132,13 @@ function initMaintMode() {
                     const data = JSON.parse(m.toString());
                     // Handle topic 'asrs/cmd/change_mode' from asrs_maintenance
                     if (t === 'asrs/cmd/change_mode') {
-                        if (data.mode === 'MANUAL') showMaintDialog();
-                        else if (data.mode === 'AUTO') hideMaintDialog();
+                        const modeStr = (data.mode || '').toUpperCase();
+                        if (modeStr === 'MANUAL') showMaintDialog();
+                        else if (modeStr === 'AUTO') hideMaintDialog();
                     }
                     // Handle topic 'warehouse/maintenance_mode' from Python backend
                     if (t === 'warehouse/maintenance_mode') {
-                        const active = data.active === true || data.active === 'true' || data.active === 1;
+                        const active = data.active === true || data.active === 'true' || data.active === 1 || data === true || data === 'true';
                         if (active) showMaintDialog();
                         else hideMaintDialog();
                     }
