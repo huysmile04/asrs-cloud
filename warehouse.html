@@ -510,7 +510,7 @@
                 const isAvail = d.status === 'available';
                 const isActive = (activeSlot === i);
                 let cardClass = isActive ? 'active' : d.status;
-                let statusText = isActive ? '⚙️ Processing...' : (isAvail ? 'Empty' : escapeHtml(d.item || d.uid || ''));
+                let statusText = isActive ? '⚙️ Processing...' : (isAvail ? 'Empty' : escapeHtml(d.item || 'Sản phẩm'));
                 container.innerHTML += `
                     <div class="slot-card ${cardClass}" id="slotCard-${i}" onclick="selectSlot(${i})">
                         <div class="slot-number">Slot ${i}</div>
@@ -531,7 +531,7 @@
             if (card) card.classList.add('selected');
             selectedSlotId = id;
             const d = slotData[id];
-            document.getElementById('uidInput').value = (d && d.uid) ? d.uid : '';
+            document.getElementById('uidInput').value = (d && d.item) ? d.item : '';
         }
 
         // ── SYNC GRID FROM PI ──────────────────────────────────────────────────
@@ -637,11 +637,11 @@
         function showRfidWaitingDialog(slotNum) {
             _dialogPhase = 'waiting_rfid';
             Swal.fire({
-                title: '📡 Quét thẻ RFID',
+                title: '📡 Đang nhập hàng...',
                 html: `
                     <div style="margin-bottom:12px; font-size:15px;">
-                        Đặt thẻ RFID vào đầu đọc để xác nhận hàng nhập.<br>
-                        <small style="color:#aaa;">Robot sẽ di chuyển đến <b>Slot ${slotNum}</b> sau khi quét thành công.</small>
+                        Hệ thống đang chạy, đang chờ quét mã RFID...<br>
+                        <small style="color:#aaa;">Robot sẽ di chuyển đến <b>Slot ${slotNum}</b> sau khi nhận được hàng.</small>
                     </div>
                     <div style="font-size:40px; animation: pulse-rfid 1s infinite; display: inline-block;">📟</div>
                     <style>
@@ -655,15 +655,14 @@
             });
         }
 
-        // ── DIALOG PHASE 2: RFID thành công → đang vận chuyển ────────────────
-        function showMovingDialog(slotNum, uid) {
+        function showMovingDialog(slotNum, productInfo) {
             _dialogPhase = 'moving';
             Swal.fire({
                 title: '🚗 Đang vận chuyển...',
                 html: `
                     <div style="margin-bottom:8px;">
                         Robot đang di chuyển đến <b>Slot ${slotNum}</b>.<br>
-                        <small style="color:#aaa;">Thẻ RFID: <code>${uid}</code></small>
+                        <small style="color:#aaa;">Sản phẩm: <b>${escapeHtml(productInfo || 'N/A')}</b></small>
                     </div>
                     <small style="color:#aaa;">Dialog sẽ tự đóng khi PLC xác nhận hoàn thành.</small>`,
                 footer: `<button class="swal-cancel-btn" onclick="cancelAction()">✖ Hủy thao tác</button>`,
@@ -694,7 +693,7 @@
             if (_dialogPhase !== 'waiting_rfid') return;
             if (data.success) {
                 // Quét thành công → chuyển sang dialog vận chuyển
-                showMovingDialog(data.slot, data.uid);
+                showMovingDialog(data.slot, data.item);
             } else {
                 // Quét thất bại → dừng ngay, báo lỗi
                 _dialogPhase = null;
@@ -752,8 +751,8 @@
                 return;
             }
             const slot = typeof data === 'object' && data.slot ? `Slot ${data.slot}` : '';
-            const uid = typeof data === 'object' && data.uid ? `UID: ${data.uid}` : '';
-            const msg = [slot, uid].filter(Boolean).join(' — ') || 'Thao tác thành công!';
+            const item = typeof data === 'object' && data.item ? `Sản phẩm: ${data.item}` : '';
+            const msg = [slot, item].filter(Boolean).join(' — ') || 'Thao tác thành công!';
 
             isSystemBusy = false;
             activeSlot = null;
@@ -785,34 +784,31 @@
             }
         }
 
-        // ── PROCESS ACTION (AUTO MODE) ─────────────────────────────────────────
         function processAction(actionType) {
             if (!isPlcConnected) { Swal.fire('Cảnh báo', 'Vui lòng kết nối PLC trước!', 'warning'); return; }
             if (isSystemBusy) { Swal.fire('Thông báo', 'Hệ thống đang bận, vui lòng chờ!', 'info'); return; }
 
-            const uid = document.getElementById('uidInput').value.trim();
+            const productInfo = document.getElementById('uidInput').value.trim();
 
-            if (actionType === 'EXPORT' && !uid && !selectedSlotId) {
-                Swal.fire('Thông báo', 'Vui lòng chọn slot trên bản đồ hoặc nhập UID!', 'warning');
+            if (actionType === 'EXPORT' && !productInfo && !selectedSlotId) {
+                Swal.fire('Thông báo', 'Vui lòng chọn slot trên bản đồ hoặc nhập thông tin sản phẩm!', 'warning');
                 return;
             }
 
             if (actionType === 'IMPORT') {
-                // CHẠY THẬT 100%: Gửi luôn lệnh IMPORT mà KHÔNG truyền UID từ web,
-                // ép Ras phải dùng thẻ RFID và tự trả về số slot.
-                _startImport("");
+                _startImport(productInfo);
             } else {
-                // EXPORT: gửi lệnh ngay, hiện dialog đang vận chuyển
-                _startExport(uid);
+                _startExport(productInfo);
             }
         }
 
-        function _startImport(uid) {
+        function _startImport(productInfo) {
             _cancelRequested = false;
             isSystemBusy = true;
             currentAction = 'IMPORT';
 
-            const cmd = { action: 'IMPORT', uid: uid, item: uid };
+            // Send productInfo as item, but empty uid to force real RFID scan
+            const cmd = { action: 'IMPORT', uid: "", item: productInfo || "Linh kien" };
             if (mqttClient && mqttClient.connected) {
                 mqttClient.publish('warehouse/command', JSON.stringify(cmd));
             }
