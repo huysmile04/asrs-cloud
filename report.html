@@ -389,7 +389,14 @@
             const d = JSON.parse(msg.toString());
             if (topic === 'warehouse/history_init') {
                 let arr = Array.isArray(d) ? d : Object.values(d);
-                arr.sort((a, b) => String(a.time || a.timestamp || '').localeCompare(String(b.time || b.timestamp || '')));
+                arr.sort((a, b) => {
+                    const tA = String(a.time || a.timestamp || '');
+                    const tB = String(b.time || b.timestamp || '');
+                    const todayPrefix = new Date().toISOString().split('T')[0] + ' ';
+                    const timeA = new Date(tA.length <= 8 && tA ? todayPrefix + tA : tA).getTime() || 0;
+                    const timeB = new Date(tB.length <= 8 && tB ? todayPrefix + tB : tB).getTime() || 0;
+                    return timeB - timeA;
+                });
                 allReportData = arr;
                 renderReport(allReportData);
             }

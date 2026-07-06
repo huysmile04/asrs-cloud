@@ -558,7 +558,7 @@
                 document.getElementById('statusPill').className = 'status-pill connected';
                 document.getElementById('statusPill').innerText = 'Connected';
 
-                client.subscribe(['warehouse/history', 'warehouse/history_init', 'warehouse/error', 'warehouse/status'], function (err) {
+                client.subscribe(['warehouse/history', 'warehouse/history_init', 'warehouse/error', 'warehouse/plc_data'], function (err) {
                     if (!err) {
                         setTimeout(() => {
                             client.publish('warehouse/command', JSON.stringify({ action: "GET_HISTORY" }));
@@ -604,7 +604,10 @@
                     dataArray.sort((a, b) => {
                         const tA = String(a.time || a.timestamp || "");
                         const tB = String(b.time || b.timestamp || "");
-                        return tB.localeCompare(tA); // Sắp xếp mới nhất lên đầu (giảm dần)
+                        const todayPrefix = new Date().toISOString().split('T')[0] + ' ';
+                        const timeA = new Date(tA.length <= 8 && tA ? todayPrefix + tA : tA).getTime() || 0;
+                        const timeB = new Date(tB.length <= 8 && tB ? todayPrefix + tB : tB).getTime() || 0;
+                        return timeB - timeA;
                     });
 
                     cntTotal = 0; cntImp = 0; cntExp = 0;
@@ -616,9 +619,9 @@
                     updateStats();
                 }
 
-                if (t === 'warehouse/status' && d && typeof d === 'object') {
+                if (t === 'warehouse/plc_data' && d && typeof d === 'object') {
                     const btn = document.getElementById('plcBtn');
-                    if (d.plc === 'connected') {
+                    if (d.connected === true) {
                         btn.className = 'plc-btn connected';
                         btn.textContent = '🟢 PLC Connected';
                     } else {
