@@ -809,6 +809,7 @@
 
             // Send productInfo as item, but empty uid to force real RFID scan
             const cmd = { action: 'IMPORT', uid: "", item: productInfo || "Linh kien" };
+            if (selectedSlotId) cmd.slot_id = selectedSlotId;
             if (mqttClient && mqttClient.connected) {
                 mqttClient.publish('warehouse/command', JSON.stringify(cmd));
             }
