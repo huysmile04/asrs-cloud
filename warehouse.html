@@ -534,6 +534,23 @@
             document.getElementById('uidInput').value = (d && d.item) ? d.item : '';
         }
 
+        function deselectSlot() {
+            if (isSystemBusy) return;
+            document.querySelectorAll('.slot-card').forEach(el => el.classList.remove('selected'));
+            selectedSlotId = null;
+            document.getElementById('uidInput').value = '';
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') deselectSlot();
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.slot-card') && !e.target.closest('.control-panel') && !e.target.closest('.swal2-container') && !e.target.closest('header')) {
+                deselectSlot();
+            }
+        });
+
         // ── SYNC GRID FROM PI ──────────────────────────────────────────────────
         function syncGridFromPi(piDb) {
             if (!piDb || typeof piDb !== 'object') return;
