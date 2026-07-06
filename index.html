@@ -341,6 +341,75 @@
                 font-size: 15px;
             }
         }
+        /* --- CSS CHO PHẦN THÔNG TIN NHÓM --- */
+        .team-info {
+            margin-top: 24px;
+            background: #f5f7fa;
+            border: 1px solid #e0e4ea;
+            border-radius: 12px;
+            padding: 22px 28px;
+            text-align: left;
+        }
+
+        .team-info h4 {
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #888;
+            margin-bottom: 14px;
+        }
+
+        .team-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 14px;
+        }
+
+        .team-table tr {
+            border-bottom: 1px solid #e8eaf0;
+        }
+
+        .team-table tr:last-child {
+            border-bottom: none;
+        }
+
+        .team-table td {
+            padding: 9px 4px;
+            font-size: 16px;
+            color: #222;
+        }
+
+        .team-name {
+            font-weight: 600;
+        }
+
+        .team-id {
+            text-align: right;
+            color: #c9302c;
+            font-weight: 700;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+
+        .team-supervisor {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding-top: 10px;
+            border-top: 1px solid #e0e4ea;
+            font-size: 15px;
+        }
+
+        .supervisor-label {
+            color: #666;
+            font-weight: 600;
+        }
+
+        .supervisor-name {
+            color: #00529c;
+            font-weight: 700;
+        }
     </style>
 </head>
 
@@ -352,7 +421,7 @@
                 <a href="#"><img src="logo.png" alt="HCMUTE Logo" style="height: 40px; width: auto;"></a>
             </div>
             <nav>
-                <a href="#">About</a>
+                <a href="#">Ho Chi Minh City University of Technology and Engineering</a>
             </nav>
         </div>
         <a href="login.html" class="login-btn">Log in</a>
@@ -372,10 +441,30 @@
 
                 <div class="about-text">
                     <h2>AS/RS</h2>
-                    <h3>Automated Storage & Retrieval System</h3>
+                    <h3>Automated Storage &amp; Retrieval System</h3>
                     <p>Utilizing an X-Y Cartesian Robot integrated with RFID and a PLC S7-1200 to fully automate the
                         warehouse import/export process, minimizing errors and optimizing operational efficiency in
                         industrial environments.</p>
+
+                    <div class="team-info">
+                        <h4>Nhóm thực hiện</h4>
+                        <table class="team-table">
+                            <tbody>
+                                <tr>
+                                    <td class="team-name">Lê Hoàng Huy</td>
+                                    <td class="team-id">MSSV: 22151092</td>
+                                </tr>
+                                <tr>
+                                    <td class="team-name">Nguyễn Anh Huy</td>
+                                    <td class="team-id">MSSV: 22151093</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div class="team-supervisor">
+                            <span class="supervisor-label">Giáo viên hướng dẫn:</span>
+                            <span class="supervisor-name">Thạc sĩ Nguyễn Tấn Đời</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
