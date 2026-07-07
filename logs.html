@@ -710,29 +710,45 @@
                 return;
             }
             
-            const items = {};
+            const uidCycles = {};
             const sortedData = [...historyData].reverse(); // from oldest to newest
             
             sortedData.forEach(log => {
                 const uid = String(log.uid || '');
                 const name = String(log.item || log.item_name || '');
-                if (uid.toLowerCase().includes(query) || name.toLowerCase().includes(query)) {
-                    if (!items[uid]) {
-                        items[uid] = { uid: uid, name: name, importTime: '--', exportTime: '--', currentSlot: '--' };
-                    }
-                    const act = (log.act || log.action || '').toUpperCase();
-                    if (act === 'IMPORT') {
-                        items[uid].importTime = log.time || log.timestamp;
-                        items[uid].exportTime = '--'; 
-                        items[uid].currentSlot = log.slot;
-                    } else if (act === 'EXPORT') {
-                        items[uid].exportTime = log.time || log.timestamp;
-                        items[uid].currentSlot = '--';
+                
+                if (!uidCycles[uid]) uidCycles[uid] = [];
+                
+                const act = (log.act || log.action || '').toUpperCase();
+                const time = log.time || log.timestamp;
+                
+                if (act === 'IMPORT') {
+                    uidCycles[uid].push({ uid, name, importTime: time, exportTime: '--', currentSlot: log.slot });
+                } else if (act === 'EXPORT') {
+                    if (uidCycles[uid].length > 0) {
+                        const lastCycle = uidCycles[uid][uidCycles[uid].length - 1];
+                        if (lastCycle.exportTime === '--') {
+                            lastCycle.exportTime = time;
+                            lastCycle.currentSlot = '--';
+                        } else {
+                            uidCycles[uid].push({ uid, name, importTime: '--', exportTime: time, currentSlot: '--' });
+                        }
+                    } else {
+                        uidCycles[uid].push({ uid, name, importTime: '--', exportTime: time, currentSlot: '--' });
                     }
                 }
             });
             
-            const results = Object.values(items).reverse();
+            const results = [];
+            Object.values(uidCycles).forEach(cycles => {
+                cycles.forEach(cycle => {
+                    if (cycle.uid.toLowerCase().includes(query) || cycle.name.toLowerCase().includes(query)) {
+                        results.push(cycle);
+                    }
+                });
+            });
+            
+            results.reverse(); // newest first
             
             if (results.length === 0) {
                 resultsContainer.innerHTML = '<div style="text-align: center; color: #ef4444; font-size: 14px; margin-top: 20px;">No results found</div>';
