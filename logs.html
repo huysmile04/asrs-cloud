@@ -488,20 +488,16 @@
         <div class="content-grid">
             <aside class="panel-card">
                 <div class="panel-header">
-                    <h3>Connection status</h3>
-                    <span id="statusPill" class="status-pill disconnected">Disconnected</span>
+                    <h3>Search Items</h3>
                 </div>
                 <div class="panel-body">
-                    <div class="info-list">
-                        <div class="info-item">
-                            <strong>Broker MQTT</strong>
-                            <span>HiveMQ Cloud</span>
-                        </div>
-                        <div class="info-item" style="display:block; padding: 0; background: none;">
-                            <strong style="display:block; margin-bottom: 8px; font-size:13px; color:#475569;">PLC
-                                S7-1200 Connection</strong>
-                            <button id="plcBtn" class="plc-btn disconnected">🔴 PLC Disconnected</button>
-                        </div>
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                        <input type="text" id="searchInput" placeholder="Search by UID or Name..." style="flex:1; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; outline: none;" onkeypress="if(event.key === 'Enter') doSearch()">
+                        <button class="btn-primary" onclick="doSearch()" style="padding: 10px 16px;">Search</button>
+                    </div>
+                    <div id="searchResults" style="display: flex; flex-direction: column; gap: 12px; max-height: 400px; overflow-y: auto; padding-right: 5px;">
+                        <!-- Search results will appear here -->
+                        <div style="text-align: center; color: #94a3b8; font-size: 14px; margin-top: 20px;">Enter keyword to search</div>
                     </div>
                 </div>
             </aside>
@@ -531,6 +527,14 @@
                             </tbody>
                         </table>
                     </div>
+                    <!-- Pagination Controls -->
+                    <div style="padding: 15px 24px; border-top: 1px solid #eef2f7; display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
+                        <div id="pageInfo" style="font-size: 14px; color: #64748b;">Page 1 of 1</div>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn-secondary" style="padding: 8px 16px; font-size: 13px;" onclick="prevPage()">Previous</button>
+                            <button class="btn-secondary" style="padding: 8px 16px; font-size: 13px;" onclick="nextPage()">Next</button>
+                        </div>
+                    </div>
                 </div>
             </section>
         </div>
@@ -542,6 +546,10 @@
         let lastMsg = "";
         let isFirstData = true;
         let cntTotal = 0, cntImp = 0, cntExp = 0;
+        
+        let historyData = [];
+        let currentPage = 1;
+        const rowsPerPage = 10;
 
         function connect() {
             if (typeof mqtt === 'undefined') {
@@ -549,16 +557,10 @@
                 return;
             }
 
-            document.getElementById('statusPill').className = 'status-pill connecting';
-            document.getElementById('statusPill').innerText = 'Connecting...';
-
             client = mqtt.connect(MQTT_CFG.url, { ...MQTT_CFG.options, clientId: getClientId('logs') });
 
             client.on('connect', () => {
-                document.getElementById('statusPill').className = 'status-pill connected';
-                document.getElementById('statusPill').innerText = 'Connected';
-
-                client.subscribe(['warehouse/history', 'warehouse/history_init', 'warehouse/error', 'warehouse/plc_data'], function (err) {
+                client.subscribe(['warehouse/history', 'warehouse/history_init', 'warehouse/error'], function (err) {
                     if (!err) {
                         setTimeout(() => {
                             client.publish('warehouse/command', JSON.stringify({ action: "GET_HISTORY" }));
@@ -578,7 +580,8 @@
                 if (t === 'warehouse/history' && s !== lastMsg) {
                     if (d && typeof d === 'object') {
                         clearEmptyMessage();
-                        addRow(d);
+                        historyData.unshift(d); // add to top
+                        renderTable(currentPage);
                         updateStats();
                     }
                     lastMsg = s;
@@ -589,11 +592,10 @@
                     clearEmptyMessage();
                     let dataArray = [];
 
-                    // Chuẩn hóa dữ liệu đầu vào thành Mảng (Array) dù Pi gửi lên định dạng nào
                     if (Array.isArray(d)) {
                         dataArray = d;
                     } else if (typeof d === 'object' && d !== null) {
-                        dataArray = Object.values(d); // Nếu Pi gửi object {0: {}, 1: {}}
+                        dataArray = Object.values(d);
                     }
 
                     if (dataArray.length === 0) {
@@ -610,33 +612,19 @@
                         return timeB - timeA;
                     });
 
-                    cntTotal = 0; cntImp = 0; cntExp = 0;
-                    document.getElementById("logsBody").innerHTML = "";
-                    dataArray.forEach(l => {
-                        const row = createRowHTML(l);
-                        document.getElementById("logsBody").insertAdjacentHTML('beforeend', row);
-                    });
+                    historyData = dataArray;
+                    currentPage = 1;
+                    renderTable(currentPage);
                     updateStats();
                 }
 
-                if (t === 'warehouse/plc_data' && d && typeof d === 'object') {
-                    const btn = document.getElementById('plcBtn');
-                    if (d.connected === true) {
-                        btn.className = 'plc-btn connected';
-                        btn.textContent = '🟢 PLC Connected';
-                    } else {
-                        btn.className = 'plc-btn disconnected';
-                        btn.textContent = '🔴 PLC Disconnected';
-                    }
-                }
                 if (t === 'warehouse/error') {
                     Swal.fire('Device error', String(d), 'error');
                 }
             });
 
             client.on('close', () => {
-                document.getElementById('statusPill').className = 'status-pill disconnected';
-                document.getElementById('statusPill').innerText = 'Disconnected';
+                console.log('MQTT Disconnected');
             });
         }
 
@@ -655,9 +643,6 @@
                 act: escapeHtml((raw.act || raw.action || 'UNKNOWN').toUpperCase()),
                 item: escapeHtml(raw.item || raw.item_name || '---')
             };
-            cntTotal++;
-            if (l.act === 'IMPORT') cntImp++;
-            else if (l.act === 'EXPORT') cntExp++;
 
             const badgeClass = l.act === 'IMPORT' ? 'badge-import' : l.act === 'EXPORT' ? 'badge-export' : 'badge';
             return `
@@ -670,16 +655,107 @@
             `;
         }
 
-        function addRow(raw) {
-            const rowHTML = createRowHTML(raw);
-            document.getElementById("logsBody").insertAdjacentHTML('afterbegin', rowHTML);
+        function renderTable(page) {
+            const start = (page - 1) * rowsPerPage;
+            const end = start + rowsPerPage;
+            const pageData = historyData.slice(start, end);
+            
+            document.getElementById("logsBody").innerHTML = "";
+            if (historyData.length === 0) {
+                document.getElementById("logsBody").innerHTML = `<tr><td colspan="4" style="text-align:center; padding: 30px; color:#999;">No data available.</td></tr>`;
+                document.getElementById("pageInfo").innerText = `Page 1 of 1`;
+                return;
+            }
+            
+            pageData.forEach(l => {
+                document.getElementById("logsBody").insertAdjacentHTML('beforeend', createRowHTML(l));
+            });
+            
+            const totalPages = Math.ceil(historyData.length / rowsPerPage) || 1;
+            document.getElementById("pageInfo").innerText = `Page ${page} of ${totalPages}`;
+        }
+        
+        function prevPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                renderTable(currentPage);
+            }
+        }
+        
+        function nextPage() {
+            const totalPages = Math.ceil(historyData.length / rowsPerPage) || 1;
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderTable(currentPage);
+            }
         }
 
         function updateStats() {
+            cntTotal = historyData.length;
+            cntImp = historyData.filter(l => (l.act || l.action || '').toUpperCase() === 'IMPORT').length;
+            cntExp = historyData.filter(l => (l.act || l.action || '').toUpperCase() === 'EXPORT').length;
+            
             document.getElementById('metricTotal').innerText = cntTotal;
             document.getElementById('metricImport').innerText = cntImp;
             document.getElementById('metricExport').innerText = cntExp;
             if (cntTotal > 0) document.getElementById('metricLastUpdate').innerText = new Date().toLocaleTimeString('vi-VN');
+        }
+
+        function doSearch() {
+            const query = document.getElementById('searchInput').value.toLowerCase().trim();
+            const resultsContainer = document.getElementById('searchResults');
+            
+            if (!query) {
+                resultsContainer.innerHTML = '<div style="text-align: center; color: #94a3b8; font-size: 14px; margin-top: 20px;">Enter keyword to search</div>';
+                return;
+            }
+            
+            const items = {};
+            const sortedData = [...historyData].reverse(); // from oldest to newest
+            
+            sortedData.forEach(log => {
+                const uid = String(log.uid || '');
+                const name = String(log.item || log.item_name || '');
+                if (uid.toLowerCase().includes(query) || name.toLowerCase().includes(query)) {
+                    if (!items[uid]) {
+                        items[uid] = { uid: uid, name: name, importTime: '--', exportTime: '--', currentSlot: '--' };
+                    }
+                    const act = (log.act || log.action || '').toUpperCase();
+                    if (act === 'IMPORT') {
+                        items[uid].importTime = log.time || log.timestamp;
+                        items[uid].exportTime = '--'; 
+                        items[uid].currentSlot = log.slot;
+                    } else if (act === 'EXPORT') {
+                        items[uid].exportTime = log.time || log.timestamp;
+                        items[uid].currentSlot = '--';
+                    }
+                }
+            });
+            
+            const results = Object.values(items).reverse();
+            
+            if (results.length === 0) {
+                resultsContainer.innerHTML = '<div style="text-align: center; color: #ef4444; font-size: 14px; margin-top: 20px;">No results found</div>';
+                return;
+            }
+            
+            let html = '';
+            results.forEach(res => {
+                html += `
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; font-size: 13px;">
+                    <div style="font-weight: 700; color: #0f172a; margin-bottom: 8px; font-size: 15px;">Name: ${escapeHtml(res.name)}</div>
+                    <div style="color: #475569; margin-bottom: 4px;"><strong>UID:</strong> <span style="font-family: monospace;">${escapeHtml(res.uid)}</span></div>
+                    <div style="color: #475569; margin-bottom: 4px;"><strong>Import Date:</strong> ${escapeHtml(res.importTime)}</div>
+                    <div style="color: #475569; margin-bottom: 4px;"><strong>Export Date:</strong> ${escapeHtml(res.exportTime)}</div>
+                    <div style="color: #475569; margin-top: 8px; display: flex; align-items: center; gap: 8px;">
+                        <strong>Current Slot:</strong> 
+                        <span class="badge ${res.currentSlot !== '--' ? 'badge-import' : 'badge-export'}" style="padding: 4px 10px; min-width: 0;">${res.currentSlot !== '--' ? 'Slot ' + escapeHtml(res.currentSlot) : 'Exported'}</span>
+                    </div>
+                </div>
+                `;
+            });
+            
+            resultsContainer.innerHTML = html;
         }
 
         function exportData() {

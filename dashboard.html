@@ -56,7 +56,7 @@
         .dashboard-grid {
             flex: 1;
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 28px;
         }
 
@@ -86,7 +86,7 @@
         @media (max-width: 1100px) {
             header { padding: 16px 30px; }
             main { padding: 30px 30px 40px; }
-            .dashboard-grid { grid-template-columns: repeat(3, 1fr); gap: 20px; }
+            .dashboard-grid { grid-template-columns: repeat(2, 1fr); gap: 20px; }
         }
         @media (max-width: 768px) {
             header { padding: 14px 20px; }
@@ -143,6 +143,12 @@
                 <div class="card-title-text">Reports</div>
                 <p>Statistical reports, import/export trend charts, and export data to Excel.</p>
                 <a href="report.html" class="card-link" style="background:var(--warning);">Open Reports →</a>
+            </div>
+            <div class="dashboard-card">
+                <div class="card-icon">🛠️</div>
+                <div class="card-title-text">Maintenance Console</div>
+                <p>Control the ASRS manually and update slot coordinates.</p>
+                <a href="https://huysmile04.github.io/asrs_maintenance_system/" target="_blank" class="card-link" style="background:#10b981;">Open Maintenance →</a>
             </div>
         </div>
     </main>
