@@ -486,16 +486,16 @@
         </div>
 
         <div class="content-grid">
-            <aside class="panel-card">
+            <aside class="panel-card" style="display: flex; flex-direction: column;">
                 <div class="panel-header">
                     <h3>Search Items</h3>
                 </div>
-                <div class="panel-body">
-                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <div class="panel-body" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-shrink: 0;">
                         <input type="text" id="searchInput" placeholder="Search by UID or Name..." style="flex:1; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; outline: none;" onkeypress="if(event.key === 'Enter') doSearch()">
                         <button class="btn-primary" onclick="doSearch()" style="padding: 10px 16px;">Search</button>
                     </div>
-                    <div id="searchResults" style="display: flex; flex-direction: column; gap: 12px; max-height: 400px; overflow-y: auto; padding-right: 5px;">
+                    <div id="searchResults" style="display: flex; flex-direction: column; gap: 12px; flex: 1; overflow-y: auto; padding-right: 5px;">
                         <!-- Search results will appear here -->
                         <div style="text-align: center; color: #94a3b8; font-size: 14px; margin-top: 20px;">Enter keyword to search</div>
                     </div>
@@ -711,7 +711,8 @@
             }
             
             const uidCycles = {};
-            const sortedData = [...historyData].reverse(); // from oldest to newest
+            // historyData is chronologically ordered (oldest first). We must iterate in this order to pair Import/Export correctly.
+            const sortedData = [...historyData]; 
             
             sortedData.forEach(log => {
                 const uid = String(log.uid || '');
@@ -748,7 +749,12 @@
                 });
             });
             
-            results.reverse(); // newest first
+            // Sort results by newest action (exportTime or importTime)
+            results.sort((a, b) => {
+                const tA = a.exportTime !== '--' ? new Date(a.exportTime).getTime() : new Date(a.importTime).getTime();
+                const tB = b.exportTime !== '--' ? new Date(b.exportTime).getTime() : new Date(b.importTime).getTime();
+                return tB - tA; // descending (newest first)
+            });
             
             if (results.length === 0) {
                 resultsContainer.innerHTML = '<div style="text-align: center; color: #ef4444; font-size: 14px; margin-top: 20px;">No results found</div>';
